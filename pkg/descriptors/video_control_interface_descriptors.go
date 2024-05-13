@@ -114,7 +114,7 @@ func (svcid *StandardVideoControlInterfaceDescriptor) isControlInterface() {}
 
 // HeaderDescriptor as defined in UVC spec 1.5, 3.7.2.1
 type HeaderDescriptor struct {
-	UVC                            BinaryCodedDecimal
+	UVC                            uint16
 	TotalLength                    uint16
 	ClockFrequency                 uint32
 	VideoStreamingInterfaceIndexes []uint8
@@ -130,7 +130,7 @@ func (hd *HeaderDescriptor) UnmarshalBinary(buf []byte) error {
 	if VideoControlInterfaceDescriptorSubtype(buf[2]) != VideoControlInterfaceDescriptorSubtypeHeader {
 		return ErrInvalidDescriptor
 	}
-	hd.UVC = BinaryCodedDecimal(binary.LittleEndian.Uint16(buf[3:5]))
+	hd.UVC = binary.LittleEndian.Uint16(buf[3:5])
 	hd.TotalLength = binary.LittleEndian.Uint16(buf[5:7])
 	hd.ClockFrequency = binary.LittleEndian.Uint32(buf[7:11])
 	n := buf[11]
