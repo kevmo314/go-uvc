@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"io"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type FrameBasedStreamHeader struct {
@@ -12,8 +14,8 @@ type FrameBasedStreamHeader struct {
 	SCR            uint64
 }
 
-func (fbsh *FrameBasedStreamHeader) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (fbsh *FrameBasedStreamHeader) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	fbsh.BitFieldHeader = buf[1]
@@ -60,7 +62,7 @@ func (fbsh *FrameBasedStreamHeader) EndOfHeader() bool {
 type FrameBasedFormatDescriptor struct {
 	FormatIndex         uint8
 	NumFrameDescriptors uint8
-	GUIDFormat          [16]byte
+	GUIDFormat          uuid.UUID
 	BitsPerPixel        uint8
 	DefaultFrameIndex   uint8
 	AspectRatioX        uint8
@@ -69,8 +71,8 @@ type FrameBasedFormatDescriptor struct {
 	CopyProtect         uint8
 }
 
-func (fbfd *FrameBasedFormatDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (fbfd *FrameBasedFormatDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -91,6 +93,10 @@ func (fbfd *FrameBasedFormatDescriptor) Unmarshal(buf []byte) error {
 	return nil
 }
 
+func (fbfd *FrameBasedFormatDescriptor) isStreamingInterface() {}
+
+func (fbfd *FrameBasedFormatDescriptor) isFormatDescriptor() {}
+
 type FrameBasedFrameDescriptor struct {
 	FrameIndex             uint8
 	Capabilities           uint8
@@ -106,8 +112,8 @@ type FrameBasedFrameDescriptor struct {
 	DiscreteFrameIntervals []time.Duration
 }
 
-func (fbfd *FrameBasedFrameDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (fbfd *FrameBasedFrameDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -142,3 +148,7 @@ func (fbfd *FrameBasedFrameDescriptor) Unmarshal(buf []byte) error {
 		return nil
 	}
 }
+
+func (fbfd *FrameBasedFrameDescriptor) isStreamingInterface() {}
+
+func (fbfd *FrameBasedFrameDescriptor) isFrameDescriptor() {}

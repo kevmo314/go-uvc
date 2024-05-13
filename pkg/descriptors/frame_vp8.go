@@ -15,8 +15,8 @@ type VP8StreamHeader struct {
 	SLI             uint16
 }
 
-func (vph *VP8StreamHeader) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (vph *VP8StreamHeader) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	vph.BitFieldHeader0 = buf[1]
@@ -98,14 +98,14 @@ type VP8FormatDescriptor struct {
 	MaxMBPerSec                      uint16
 }
 
-func (vfd *VP8FormatDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (vfd *VP8FormatDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
 		return ErrInvalidDescriptor
 	}
-	if VideoStreamingInterfaceDescriptorSubtype(buf[2]) != VideoStreamingInterfaceDescriptorSubtypeFormatVP8 {
+	if VideoStreamingInterfaceDescriptorSubtype(buf[2]) != VideoStreamingInterfaceDescriptorSubtypeFormatVP8 && VideoStreamingInterfaceDescriptorSubtype(buf[2]) != VideoStreamingInterfaceDescriptorSubtypeFormatVP8Simulcast {
 		return ErrInvalidDescriptor
 	}
 	vfd.FormatIndex = buf[3]
@@ -120,6 +120,10 @@ func (vfd *VP8FormatDescriptor) Unmarshal(buf []byte) error {
 	return nil
 }
 
+func (vfd *VP8FormatDescriptor) isStreamingInterface() {}
+
+func (vfd *VP8FormatDescriptor) isFormatDescriptor() {}
+
 type VP8FrameDescriptor struct {
 	FrameIndex                     uint8
 	Width, Height                  uint16
@@ -131,8 +135,8 @@ type VP8FrameDescriptor struct {
 	FrameIntervals                 []time.Duration
 }
 
-func (vfd *VP8FrameDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (vfd *VP8FrameDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -156,3 +160,7 @@ func (vfd *VP8FrameDescriptor) Unmarshal(buf []byte) error {
 	}
 	return nil
 }
+
+func (vfd *VP8FrameDescriptor) isStreamingInterface() {}
+
+func (vfd *VP8FrameDescriptor) isFrameDescriptor() {}

@@ -11,8 +11,8 @@ type DVStreamHeader struct {
 	SCR            uint64
 }
 
-func (dvsh *DVStreamHeader) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (dvsh *DVStreamHeader) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	dvsh.BitFieldHeader = buf[1]
@@ -62,8 +62,8 @@ type DVFormatDescriptor struct {
 	FormatType              uint8
 }
 
-func (dvfd *DVFormatDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (dvfd *DVFormatDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -77,3 +77,7 @@ func (dvfd *DVFormatDescriptor) Unmarshal(buf []byte) error {
 	dvfd.FormatType = buf[8]
 	return nil
 }
+
+func (dvfd *DVFormatDescriptor) isStreamingInterface() {}
+
+func (dvfd *DVFormatDescriptor) isFormatDescriptor() {}

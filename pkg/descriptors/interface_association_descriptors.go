@@ -8,8 +8,8 @@ type InterfaceAssociationDescriptor struct {
 	DescriptionIndex uint8
 }
 
-func (iad *InterfaceAssociationDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (iad *InterfaceAssociationDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if buf[1] != 0xEF { // TODO: where does this come from

@@ -14,8 +14,8 @@ type StandardVideoStreamingIsochronousVideoDataEndpointDescriptor struct {
 	Interval          uint8
 }
 
-func (svsived *StandardVideoStreamingIsochronousVideoDataEndpointDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (svsived *StandardVideoStreamingIsochronousVideoDataEndpointDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	// TODO: fix the descriptor type, this is not the class specific one.
@@ -36,8 +36,8 @@ type StandardVideoStreamingBulkVideoDataEndpointDescriptor struct {
 	Interval        uint8
 }
 
-func (svsbded *StandardVideoStreamingBulkVideoDataEndpointDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (svsbded *StandardVideoStreamingBulkVideoDataEndpointDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	// TODO: fix the descriptor type, this is not the class specific one.
@@ -59,8 +59,8 @@ type StandardVideoStreamingBulkStillImageDataEndpointDescriptor struct {
 	MaxPacketSize   uint16
 }
 
-func (svsbied *StandardVideoStreamingBulkStillImageDataEndpointDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (svsbied *StandardVideoStreamingBulkStillImageDataEndpointDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	// TODO: fix the descriptor type, this is not the class specific one.

@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"io"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type UncompressedStreamHeader struct {
@@ -12,8 +14,8 @@ type UncompressedStreamHeader struct {
 	SCR            uint64
 }
 
-func (ush *UncompressedStreamHeader) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (ush *UncompressedStreamHeader) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	ush.BitFieldHeader = buf[1]
@@ -60,7 +62,7 @@ func (ush *UncompressedStreamHeader) EndOfHeader() bool {
 type UncompressedFormatDescriptor struct {
 	FormatIndex           uint8
 	NumFrameDescriptors   uint8
-	GUIDFormat            [16]byte
+	GUIDFormat            uuid.UUID
 	BitsPerPixel          uint8
 	DefaultFrameIndex     uint8
 	AspectRatioX          uint8
@@ -69,8 +71,8 @@ type UncompressedFormatDescriptor struct {
 	CopyProtect           uint8
 }
 
-func (ufd *UncompressedFormatDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (ufd *UncompressedFormatDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -91,6 +93,10 @@ func (ufd *UncompressedFormatDescriptor) Unmarshal(buf []byte) error {
 	return nil
 }
 
+func (ufd *UncompressedFormatDescriptor) isStreamingInterface() {}
+
+func (ufd *UncompressedFormatDescriptor) isFormatDescriptor() {}
+
 type UncompressedFrameDescriptor struct {
 	FrameIndex              uint8
 	Capabilities            uint8
@@ -105,8 +111,8 @@ type UncompressedFrameDescriptor struct {
 	DiscreteFrameIntervals []time.Duration
 }
 
-func (ufd *UncompressedFrameDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (ufd *UncompressedFrameDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -140,3 +146,7 @@ func (ufd *UncompressedFrameDescriptor) Unmarshal(buf []byte) error {
 		return nil
 	}
 }
+
+func (ufd *UncompressedFrameDescriptor) isStreamingInterface() {}
+
+func (ufd *UncompressedFrameDescriptor) isFrameDescriptor() {}

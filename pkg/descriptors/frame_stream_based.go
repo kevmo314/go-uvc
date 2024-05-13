@@ -3,6 +3,8 @@ package descriptors
 import (
 	"encoding/binary"
 	"io"
+
+	"github.com/google/uuid"
 )
 
 type StreamBasedStreamHeader struct {
@@ -11,8 +13,8 @@ type StreamBasedStreamHeader struct {
 	SCR            uint64
 }
 
-func (sbsh *StreamBasedStreamHeader) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (sbsh *StreamBasedStreamHeader) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	sbsh.BitFieldHeader = buf[1]
@@ -58,12 +60,12 @@ func (sbsh *StreamBasedStreamHeader) EndOfHeader() bool {
 
 type StreamBasedFormatDescriptor struct {
 	FormatIndex  uint8
-	GUIDFormat   [16]byte
+	GUIDFormat   uuid.UUID
 	PacketLength uint32
 }
 
-func (sbfd *StreamBasedFormatDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (sbfd *StreamBasedFormatDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -77,3 +79,7 @@ func (sbfd *StreamBasedFormatDescriptor) Unmarshal(buf []byte) error {
 	sbfd.PacketLength = binary.LittleEndian.Uint32(buf[20:24])
 	return nil
 }
+
+func (sbfd *StreamBasedFormatDescriptor) isStreamingInterface() {}
+
+func (sbfd *StreamBasedFormatDescriptor) isFormatDescriptor() {}

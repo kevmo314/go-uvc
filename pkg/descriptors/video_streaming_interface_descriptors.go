@@ -2,17 +2,59 @@
 package descriptors
 
 import (
+	"encoding"
 	"encoding/binary"
 	"io"
 )
 
-type StreamingInterface struct {
-	FormatDescriptor
-	FrameDescriptor
-	InputHeaderDescriptor     InputHeaderDescriptor
-	OutputHeaderDescriptor    OutputHeaderDescriptor
-	StillImageFrameDescriptor StillImageFrameDescriptor
-	// TODO: add colorformat descriptor?
+type StreamingInterface interface {
+	encoding.BinaryUnmarshaler
+	isStreamingInterface()
+}
+
+func UnmarshalStreamingInterface(buf []byte) (StreamingInterface, error) {
+	var desc StreamingInterface
+	switch VideoStreamingInterfaceDescriptorSubtype(buf[2]) {
+	case VideoStreamingInterfaceDescriptorSubtypeInputHeader:
+		desc = &InputHeaderDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeOutputHeader:
+		desc = &OutputHeaderDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeStillImageFrame:
+		desc = &StillImageFrameDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeFormatUncompressed:
+		desc = &UncompressedFormatDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeFrameUncompressed:
+		desc = &UncompressedFrameDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeFormatMJPEG:
+		desc = &MJPEGFormatDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeFrameMJPEG:
+		desc = &MJPEGFrameDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeFormatMPEG2TS:
+		desc = &MPEG2TSFormatDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeFormatDV:
+		desc = &DVFormatDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeColorFormat:
+		desc = &ColorMatchingDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeFormatFrameBased:
+		desc = &FrameBasedFormatDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeFrameFrameBased:
+		desc = &FrameBasedFrameDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeFormatStreamBased:
+		desc = &StreamBasedFormatDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeFormatH264:
+		desc = &H264FormatDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeFrameH264:
+		desc = &H264FrameDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeFormatH264Simulcast:
+		desc = &H264FormatDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeFormatVP8:
+		desc = &VP8FormatDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeFrameVP8:
+		desc = &VP8FrameDescriptor{}
+	case VideoStreamingInterfaceDescriptorSubtypeFormatVP8Simulcast:
+		desc = &VP8FormatDescriptor{}
+	}
+	return desc, desc.UnmarshalBinary(buf)
 }
 
 type VideoStreamingInterfaceDescriptorSubtype byte
@@ -48,8 +90,8 @@ type StandardVideoStreamingInterfaceDescriptor struct {
 	DescriptionIndex uint8
 }
 
-func (svsid *StandardVideoStreamingInterfaceDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (svsid *StandardVideoStreamingInterfaceDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	// TODO: fix the descriptor type, this is not the class specific one.
@@ -72,6 +114,8 @@ func (svsid *StandardVideoStreamingInterfaceDescriptor) Unmarshal(buf []byte) er
 	return nil
 }
 
+func (svsid *StandardVideoStreamingInterfaceDescriptor) isStreamingInterface() {}
+
 // InputHeaderDescriptor as defined in UVC spec 1.5, 3.9.2.1
 type InputHeaderDescriptor struct {
 	TotalLength        uint16
@@ -84,8 +128,8 @@ type InputHeaderDescriptor struct {
 	ControlBitmasks    [][]byte
 }
 
-func (ihd *InputHeaderDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (ihd *InputHeaderDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -103,11 +147,14 @@ func (ihd *InputHeaderDescriptor) Unmarshal(buf []byte) error {
 	ihd.TriggerSupport = buf[10]
 	ihd.TriggerUsage = buf[11]
 	n := buf[12]
+	ihd.ControlBitmasks = make([][]byte, p)
 	for i := uint8(0); i < p; i++ {
 		ihd.ControlBitmasks[i] = buf[13+i*n : 13+(i+1)*n]
 	}
 	return nil
 }
+
+func (ihd *InputHeaderDescriptor) isStreamingInterface() {}
 
 // OutputHeaderDescriptor as defined in UVC spec 1.5, 3.9.2.2
 type OutputHeaderDescriptor struct {
@@ -117,8 +164,8 @@ type OutputHeaderDescriptor struct {
 	ControlBitmasks [][]byte
 }
 
-func (ohd *OutputHeaderDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (ohd *OutputHeaderDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -138,6 +185,8 @@ func (ohd *OutputHeaderDescriptor) Unmarshal(buf []byte) error {
 	return nil
 }
 
+func (ohd *OutputHeaderDescriptor) isStreamingInterface() {}
+
 // PayloadFormatDescriptor and VideoFrameDescriptor are implemented in the corresponding subpackages.
 
 // StillImageFrameDescriptor as defined in UVC spec 1.5, 3.9.2.5
@@ -149,8 +198,8 @@ type StillImageFrameDescriptor struct {
 	CompressionPatterns []uint8
 }
 
-func (sifd *StillImageFrameDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (sifd *StillImageFrameDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -172,6 +221,8 @@ func (sifd *StillImageFrameDescriptor) Unmarshal(buf []byte) error {
 	return nil
 }
 
+func (sifd *StillImageFrameDescriptor) isStreamingInterface() {}
+
 // ColorMatchingDescriptor as defined in UVC spec 1.5, 3.9.2.6
 type ColorMatchingDescriptor struct {
 	ColorPrimaries          uint8
@@ -179,8 +230,8 @@ type ColorMatchingDescriptor struct {
 	MatrixCoefficients      uint8
 }
 
-func (cmd *ColorMatchingDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (cmd *ColorMatchingDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -194,3 +245,5 @@ func (cmd *ColorMatchingDescriptor) Unmarshal(buf []byte) error {
 	cmd.MatrixCoefficients = buf[5]
 	return nil
 }
+
+func (cmd *ColorMatchingDescriptor) isStreamingInterface() {}

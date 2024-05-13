@@ -12,8 +12,8 @@ type MJPEGStreamHeader struct {
 	SCR            uint64
 }
 
-func (msh *MJPEGStreamHeader) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (msh *MJPEGStreamHeader) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	msh.BitFieldHeader = buf[1]
@@ -67,8 +67,8 @@ type MJPEGFormatDescriptor struct {
 	CopyProtect                uint8
 }
 
-func (mfd *MJPEGFormatDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (mfd *MJPEGFormatDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -88,6 +88,10 @@ func (mfd *MJPEGFormatDescriptor) Unmarshal(buf []byte) error {
 	return nil
 }
 
+func (mfd *MJPEGFormatDescriptor) isStreamingInterface() {}
+
+func (mfd *MJPEGFormatDescriptor) isFormatDescriptor() {}
+
 type MJPEGFrameDescriptor struct {
 	FrameIndex              uint8
 	Capabilities            uint8
@@ -102,8 +106,8 @@ type MJPEGFrameDescriptor struct {
 	DiscreteFrameIntervals []time.Duration
 }
 
-func (mfd *MJPEGFrameDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (mfd *MJPEGFrameDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -137,3 +141,7 @@ func (mfd *MJPEGFrameDescriptor) Unmarshal(buf []byte) error {
 		return nil
 	}
 }
+
+func (mfd *MJPEGFrameDescriptor) isStreamingInterface() {}
+
+func (mfd *MJPEGFrameDescriptor) isFrameDescriptor() {}

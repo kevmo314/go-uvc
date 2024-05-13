@@ -8,8 +8,8 @@ type MPEG2TSStreamHeader struct {
 	BitFieldHeader uint8
 }
 
-func (msh *MPEG2TSStreamHeader) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (msh *MPEG2TSStreamHeader) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	msh.BitFieldHeader = buf[1]
@@ -44,8 +44,8 @@ type MPEG2TSFormatDescriptor struct {
 	GUIDStrideFormat [16]byte
 }
 
-func (mfd *MPEG2TSFormatDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (mfd *MPEG2TSFormatDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -61,3 +61,7 @@ func (mfd *MPEG2TSFormatDescriptor) Unmarshal(buf []byte) error {
 	copy(mfd.GUIDStrideFormat[:], buf[7:23])
 	return nil
 }
+
+func (mfd *MPEG2TSFormatDescriptor) isStreamingInterface() {}
+
+func (mfd *MPEG2TSFormatDescriptor) isFormatDescriptor() {}

@@ -13,8 +13,8 @@ type H264StreamHeader struct {
 	SLI            uint16
 }
 
-func (hsh *H264StreamHeader) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (hsh *H264StreamHeader) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	hsh.BitFieldHeader = buf[1]
@@ -97,8 +97,8 @@ type H264FormatDescriptor struct {
 	MaxMBPerSecFourResolutionsFullScalability             uint16
 }
 
-func (hfd *H264FormatDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (hfd *H264FormatDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -140,6 +140,10 @@ func (hfd *H264FormatDescriptor) Unmarshal(buf []byte) error {
 	return nil
 }
 
+func (hfd *H264FormatDescriptor) isStreamingInterface() {}
+
+func (hfd *H264FormatDescriptor) isFormatDescriptor() {}
+
 type H264FrameDescriptor struct {
 	FrameIndex             uint8
 	Width, Height          uint16
@@ -155,8 +159,8 @@ type H264FrameDescriptor struct {
 	FrameIntervals         []time.Duration
 }
 
-func (hfd *H264FrameDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (hfd *H264FrameDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -186,3 +190,7 @@ func (hfd *H264FrameDescriptor) Unmarshal(buf []byte) error {
 	}
 	return nil
 }
+
+func (hfd *H264FrameDescriptor) isStreamingInterface() {}
+
+func (hfd *H264FrameDescriptor) isFrameDescriptor() {}

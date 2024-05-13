@@ -2,17 +2,35 @@
 package descriptors
 
 import (
+	"encoding"
 	"encoding/binary"
 	"io"
 )
 
-type ControlInterface struct {
-	InputTerminalDescriptor  InputTerminalDescriptor
-	OutputTerminalDescriptor OutputTerminalDescriptor
-	SelectorUnitDescriptor   SelectorUnitDescriptor
-	ProcessingUnitDescriptor ProcessingUnitDescriptor
-	EncodingUnitDescriptor   EncodingUnitDescriptor
-	ExtensionUnitDescriptor  ExtensionUnitDescriptor
+type ControlInterface interface {
+	encoding.BinaryUnmarshaler
+	isControlInterface()
+}
+
+func UnmarshalControlInterface(buf []byte) (ControlInterface, error) {
+	var desc ControlInterface
+	switch VideoControlInterfaceDescriptorSubtype(buf[2]) {
+	case VideoControlInterfaceDescriptorSubtypeHeader:
+		desc = &HeaderDescriptor{}
+	case VideoControlInterfaceDescriptorSubtypeInputTerminal:
+		desc = &InputTerminalDescriptor{}
+	case VideoControlInterfaceDescriptorSubtypeOutputTerminal:
+		desc = &OutputTerminalDescriptor{}
+	case VideoControlInterfaceDescriptorSubtypeSelectorUnit:
+		desc = &SelectorUnitDescriptor{}
+	case VideoControlInterfaceDescriptorSubtypeProcessingUnit:
+		desc = &ProcessingUnitDescriptor{}
+	case VideoControlInterfaceDescriptorSubtypeEncodingUnit:
+		desc = &EncodingUnitDescriptor{}
+	case VideoControlInterfaceDescriptorSubtypeExtensionUnit:
+		desc = &ExtensionUnitDescriptor{}
+	}
+	return desc, desc.UnmarshalBinary(buf)
 }
 
 type VideoControlInterfaceDescriptorSubtype byte
@@ -68,8 +86,8 @@ type StandardVideoControlInterfaceDescriptor struct {
 	DescriptionIndex uint8
 }
 
-func (svcid *StandardVideoControlInterfaceDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (svcid *StandardVideoControlInterfaceDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	// TODO: check the descriptor type, this is not the class specific one.
@@ -92,6 +110,36 @@ func (svcid *StandardVideoControlInterfaceDescriptor) Unmarshal(buf []byte) erro
 	return nil
 }
 
+func (svcid *StandardVideoControlInterfaceDescriptor) isControlInterface() {}
+
+// HeaderDescriptor as defined in UVC spec 1.5, 3.7.2.1
+type HeaderDescriptor struct {
+	UVC                            BinaryCodedDecimal
+	TotalLength                    uint16
+	ClockFrequency                 uint32
+	VideoStreamingInterfaceIndexes []uint8
+}
+
+func (hd *HeaderDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
+		return io.ErrShortBuffer
+	}
+	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
+		return ErrInvalidDescriptor
+	}
+	if VideoControlInterfaceDescriptorSubtype(buf[2]) != VideoControlInterfaceDescriptorSubtypeHeader {
+		return ErrInvalidDescriptor
+	}
+	hd.UVC = BinaryCodedDecimal(binary.LittleEndian.Uint16(buf[3:5]))
+	hd.TotalLength = binary.LittleEndian.Uint16(buf[5:7])
+	hd.ClockFrequency = binary.LittleEndian.Uint32(buf[7:11])
+	n := buf[11]
+	hd.VideoStreamingInterfaceIndexes = buf[12 : 12+n]
+	return nil
+}
+
+func (hd *HeaderDescriptor) isControlInterface() {}
+
 // InputTerminalDescriptor as defined in UVC spec 1.5, 3.7.2.1
 type InputTerminalDescriptor struct {
 	TerminalID           uint8
@@ -100,8 +148,8 @@ type InputTerminalDescriptor struct {
 	DescriptionIndex     uint8
 }
 
-func (itd *InputTerminalDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (itd *InputTerminalDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -117,6 +165,8 @@ func (itd *InputTerminalDescriptor) Unmarshal(buf []byte) error {
 	return nil
 }
 
+func (itd *InputTerminalDescriptor) isControlInterface() {}
+
 // OutputTerminalDescriptor as defined in UVC spec 1.5, 3.7.2.2
 type OutputTerminalDescriptor struct {
 	TerminalID           uint8
@@ -125,8 +175,8 @@ type OutputTerminalDescriptor struct {
 	SourceID             uint8
 }
 
-func (otd *OutputTerminalDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (otd *OutputTerminalDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -142,6 +192,8 @@ func (otd *OutputTerminalDescriptor) Unmarshal(buf []byte) error {
 	return nil
 }
 
+func (otd *OutputTerminalDescriptor) isControlInterface() {}
+
 // CameraTerminalDescriptor as defined in UVC spec 1.5, 3.7.2.3
 type CameraTerminalDescriptor struct {
 	ObjectiveFocalLengthMin uint16
@@ -150,8 +202,8 @@ type CameraTerminalDescriptor struct {
 	ControlsBitmask         uint32
 }
 
-func (ctd *CameraTerminalDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (ctd *CameraTerminalDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -170,6 +222,8 @@ func (ctd *CameraTerminalDescriptor) Unmarshal(buf []byte) error {
 	return nil
 }
 
+func (ctd *CameraTerminalDescriptor) isControlInterface() {}
+
 // SelectorUnitDescriptor as defined in UVC spec 1.5, 3.7.2.4
 type SelectorUnitDescriptor struct {
 	UnitID           uint8
@@ -177,8 +231,8 @@ type SelectorUnitDescriptor struct {
 	DescriptionIndex uint8
 }
 
-func (sud *SelectorUnitDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (sud *SelectorUnitDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -194,18 +248,20 @@ func (sud *SelectorUnitDescriptor) Unmarshal(buf []byte) error {
 	return nil
 }
 
+func (sud *SelectorUnitDescriptor) isControlInterface() {}
+
 // ProcessingUnitDescriptor as defined in UVC spec 1.5, 3.7.2.5
 type ProcessingUnitDescriptor struct {
 	UnitID                uint8
 	SourceID              uint8
 	MaxMultiplier         uint16
-	ControlsBitmask       uint32
+	ControlsBitmask       []byte
 	DescriptionIndex      uint8
 	VideoStandardsBitmask uint8
 }
 
-func (pud *ProcessingUnitDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (pud *ProcessingUnitDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -216,12 +272,19 @@ func (pud *ProcessingUnitDescriptor) Unmarshal(buf []byte) error {
 	}
 	pud.UnitID = buf[3]
 	pud.SourceID = buf[4]
-	pud.MaxMultiplier = binary.LittleEndian.Uint16(buf[6:8])
-	pud.ControlsBitmask = binary.LittleEndian.Uint32(buf[8:12])
-	pud.DescriptionIndex = buf[12]
-	pud.VideoStandardsBitmask = buf[13]
+	pud.MaxMultiplier = binary.LittleEndian.Uint16(buf[5:7])
+	n := buf[7]
+	pud.ControlsBitmask = make([]byte, n)
+	copy(pud.ControlsBitmask, buf[8:8+n])
+	pud.DescriptionIndex = buf[8+n]
+	if len(buf) > int(9+n) {
+		// TODO: did this not exist in USB spec 1.0?
+		pud.VideoStandardsBitmask = buf[9+n]
+	}
 	return nil
 }
+
+func (pud *ProcessingUnitDescriptor) isControlInterface() {}
 
 // EncodingUnitDescriptor as defined in UVC spec 1.5, 3.7.2.6
 type EncodingUnitDescriptor struct {
@@ -232,8 +295,8 @@ type EncodingUnitDescriptor struct {
 	ControlsRuntimeBitmask uint32
 }
 
-func (eud *EncodingUnitDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (eud *EncodingUnitDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -251,6 +314,8 @@ func (eud *EncodingUnitDescriptor) Unmarshal(buf []byte) error {
 	return nil
 }
 
+func (eud *EncodingUnitDescriptor) isControlInterface() {}
+
 // ExtensionUnitDescriptor as defined in UVC spec 1.5, 3.7.2.7
 type ExtensionUnitDescriptor struct {
 	UnitID            uint8
@@ -261,8 +326,8 @@ type ExtensionUnitDescriptor struct {
 	DescriptionIndex  uint8
 }
 
-func (eud *ExtensionUnitDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (eud *ExtensionUnitDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
@@ -275,9 +340,13 @@ func (eud *ExtensionUnitDescriptor) Unmarshal(buf []byte) error {
 	copy(eud.GUIDExtensionCode[:], buf[4:20])
 	eud.NumControls = buf[20]
 	p := buf[21]
-	eud.SourceIDs = buf[22 : 22+p]
+	eud.SourceIDs = make([]uint8, p)
+	copy(eud.SourceIDs, buf[22:22+p])
 	n := buf[22+p]
-	eud.ControlsBitmask = buf[23+p : 23+p+n]
+	eud.ControlsBitmask = make([]byte, n)
+	copy(eud.ControlsBitmask, buf[23+p:23+p+n])
 	eud.DescriptionIndex = buf[23+p+n]
 	return nil
 }
+
+func (eud *ExtensionUnitDescriptor) isControlInterface() {}

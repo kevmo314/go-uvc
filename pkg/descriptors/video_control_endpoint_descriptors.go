@@ -19,8 +19,8 @@ type StandardVideoControlInterruptEndpointDescriptor struct {
 	MaxTransferSize uint16
 }
 
-func (svcie *StandardVideoControlInterruptEndpointDescriptor) Unmarshal(buf []byte) error {
-	if len(buf) != int(buf[0]) {
+func (svcie *StandardVideoControlInterruptEndpointDescriptor) UnmarshalBinary(buf []byte) error {
+	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeEndpoint {
