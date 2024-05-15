@@ -16,11 +16,13 @@ import (
 )
 
 type UVCDevice struct {
+	ctx    *gousb.Context
 	device *gousb.Device
 }
 
 func NewUVCDevice(fd uintptr) (*UVCDevice, error) {
 	ctx := gousb.NewContext()
+	defer ctx.Close()
 
 	device, err := ctx.OpenDeviceWithFileDescriptor(uintptr(fd))
 	if err != nil {
