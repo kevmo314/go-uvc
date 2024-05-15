@@ -117,6 +117,7 @@ type StreamingInterface1 struct {
 // claim_interface for the specific interface
 // control_transfer
 func (si *StreamingInterface1) ClaimDeviceFrameReader(uvc *UVCDevice1, bcdUVC uint16, formatIndex, frameIndex uint8) (*FrameReader1, error) {
+	// gousb doesnt seem to expose the regular detach
 	if err := uvc.device.SetAutoDetach(true); err != nil {
 		return nil, err
 	}
