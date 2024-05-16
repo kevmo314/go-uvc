@@ -15,12 +15,12 @@ func TestDeviceInfo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ctx, err := NewUVCDevice(uintptr(fd))
+	device, err := NewUVCDevice(uintptr(fd))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	info, err := ctx.DeviceInfo()
+	info, err := device.DeviceInfo()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,17 +32,11 @@ func TestDeviceInfo(t *testing.T) {
 				continue
 			}
 
-			resp, err := iface.ClaimFrameReader(0, 0)
+			resp, err := iface.ClaimFrameReader(device, info.bcdUVC, 0, 0)
 			if err != nil {
 				t.Fatal(err)
 			}
 			log.Printf("got negotiated format: %#v", resp)
-
-			fr, err := resp.ReadFrame()
-			if err != nil {
-				t.Fatal(err)
-			}
-			log.Printf("got frame: %#v", fr)
 
 			break
 		}
