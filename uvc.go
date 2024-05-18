@@ -53,6 +53,14 @@ type StreamingInterface struct {
 	Descriptors  []descriptors.StreamingInterface
 }
 
+func (si *StreamingInterface) InterfaceNumber() uint8 {
+	return uint8(si.usb.altsetting.bInterfaceNumber)
+}
+
+func (si *StreamingInterface) UVCVersionString() string {
+	return fmt.Sprintf("%x.%02x", si.bcdUVC>>8, si.bcdUVC&0xff)
+}
+
 func (si *StreamingInterface) FormatDescriptors() []descriptors.FormatDescriptor {
 	var descs []descriptors.FormatDescriptor
 	for _, desc := range si.Descriptors {
