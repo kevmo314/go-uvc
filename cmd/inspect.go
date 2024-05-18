@@ -112,7 +112,7 @@ func formatDescriptorTitle(fd descriptors.FormatDescriptor) string {
 		if err != nil {
 			return fmt.Sprintf("Frame-Based (%d formats)", fd.NumFrameDescriptors)
 		}
-		return fmt.Sprintf("Frame-Based [%s] (%d formats)", fourcc, fd.NumFrameDescriptors)
+		return fmt.Sprintf("Frame-Based %s (%d formats)", fourcc, fd.NumFrameDescriptors)
 	case *descriptors.StreamBasedFormatDescriptor:
 		return "Stream-Based"
 	default:
