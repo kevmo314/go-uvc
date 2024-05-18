@@ -2,7 +2,9 @@ package descriptors
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -83,7 +85,7 @@ func (fbfd *FrameBasedFormatDescriptor) UnmarshalBinary(buf []byte) error {
 	}
 	fbfd.FormatIndex = buf[3]
 	fbfd.NumFrameDescriptors = buf[4]
-	copy(fbfd.GUIDFormat[:], buf[5:21])
+	copyGUID(fbfd.GUIDFormat[:], buf[5:21])
 	fbfd.BitsPerPixel = buf[21]
 	fbfd.DefaultFrameIndex = buf[22]
 	fbfd.AspectRatioX = buf[23]
@@ -91,6 +93,15 @@ func (fbfd *FrameBasedFormatDescriptor) UnmarshalBinary(buf []byte) error {
 	fbfd.InterlaceFlags = buf[25]
 	fbfd.CopyProtect = buf[26]
 	return nil
+}
+
+func (fbfd *FrameBasedFormatDescriptor) FourCC() ([4]byte, error) {
+	if strings.HasSuffix(fbfd.GUIDFormat.String(), "-0000-0010-8000-00aa00389b71") {
+		buf := [4]byte{}
+		binary.LittleEndian.PutUint32(buf[:], fbfd.GUIDFormat.ID())
+		return buf, nil
+	}
+	return [4]byte{}, fmt.Errorf("unknown FourCC for GUID %s", fbfd.GUIDFormat)
 }
 
 func (fbfd *FrameBasedFormatDescriptor) isStreamingInterface() {}

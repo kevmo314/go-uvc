@@ -337,7 +337,7 @@ func (eud *ExtensionUnitDescriptor) UnmarshalBinary(buf []byte) error {
 		return ErrInvalidDescriptor
 	}
 	eud.UnitID = buf[3]
-	copy(eud.GUIDExtensionCode[:], buf[4:20])
+	copyGUID(eud.GUIDExtensionCode[:], buf[4:20])
 	eud.NumControls = buf[20]
 	p := buf[21]
 	eud.SourceIDs = make([]uint8, p)

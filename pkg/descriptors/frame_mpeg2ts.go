@@ -2,6 +2,8 @@ package descriptors
 
 import (
 	"io"
+
+	"github.com/google/uuid"
 )
 
 type MPEG2TSStreamHeader struct {
@@ -41,7 +43,7 @@ type MPEG2TSFormatDescriptor struct {
 	DataOffset       uint8
 	PacketLength     uint8
 	StrideLength     uint8
-	GUIDStrideFormat [16]byte
+	GUIDStrideFormat uuid.UUID
 }
 
 func (mfd *MPEG2TSFormatDescriptor) UnmarshalBinary(buf []byte) error {
@@ -58,7 +60,7 @@ func (mfd *MPEG2TSFormatDescriptor) UnmarshalBinary(buf []byte) error {
 	mfd.DataOffset = buf[4]
 	mfd.PacketLength = buf[5]
 	mfd.StrideLength = buf[6]
-	copy(mfd.GUIDStrideFormat[:], buf[7:23])
+	copyGUID(mfd.GUIDStrideFormat[:], buf[7:23])
 	return nil
 }
 
