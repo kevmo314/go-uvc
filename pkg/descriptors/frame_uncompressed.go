@@ -83,7 +83,7 @@ func (ufd *UncompressedFormatDescriptor) UnmarshalBinary(buf []byte) error {
 	}
 	ufd.FormatIndex = buf[3]
 	ufd.NumFrameDescriptors = buf[4]
-	copyGUID(ufd.GUIDFormat[:], buf[5:21])
+	copyGUID(ufd.GUIDFormat, buf[5:21])
 	ufd.BitsPerPixel = buf[21]
 	ufd.DefaultFrameIndex = buf[22]
 	ufd.AspectRatioX = buf[23]
@@ -96,6 +96,10 @@ func (ufd *UncompressedFormatDescriptor) UnmarshalBinary(buf []byte) error {
 func (ufd *UncompressedFormatDescriptor) isStreamingInterface() {}
 
 func (ufd *UncompressedFormatDescriptor) isFormatDescriptor() {}
+
+func (ufd *UncompressedFormatDescriptor) Index() uint8 {
+	return ufd.FormatIndex
+}
 
 type UncompressedFrameDescriptor struct {
 	FrameIndex              uint8
@@ -150,3 +154,7 @@ func (ufd *UncompressedFrameDescriptor) UnmarshalBinary(buf []byte) error {
 func (ufd *UncompressedFrameDescriptor) isStreamingInterface() {}
 
 func (ufd *UncompressedFrameDescriptor) isFrameDescriptor() {}
+
+func (ufd *UncompressedFrameDescriptor) Index() uint8 {
+	return ufd.FrameIndex
+}

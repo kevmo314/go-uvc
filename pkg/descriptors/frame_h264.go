@@ -144,6 +144,10 @@ func (hfd *H264FormatDescriptor) isStreamingInterface() {}
 
 func (hfd *H264FormatDescriptor) isFormatDescriptor() {}
 
+func (hfd *H264FormatDescriptor) Index() uint8 {
+	return hfd.FormatIndex
+}
+
 type H264FrameDescriptor struct {
 	FrameIndex             uint8
 	Width, Height          uint16
@@ -194,3 +198,7 @@ func (hfd *H264FrameDescriptor) UnmarshalBinary(buf []byte) error {
 func (hfd *H264FrameDescriptor) isStreamingInterface() {}
 
 func (hfd *H264FrameDescriptor) isFrameDescriptor() {}
+
+func (hfd *H264FrameDescriptor) Index() uint8 {
+	return hfd.FrameIndex
+}

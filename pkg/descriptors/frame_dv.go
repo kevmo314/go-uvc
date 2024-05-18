@@ -81,3 +81,7 @@ func (dvfd *DVFormatDescriptor) UnmarshalBinary(buf []byte) error {
 func (dvfd *DVFormatDescriptor) isStreamingInterface() {}
 
 func (dvfd *DVFormatDescriptor) isFormatDescriptor() {}
+
+func (dvfd *DVFormatDescriptor) Index() uint8 {
+	return dvfd.FormatIndex
+}

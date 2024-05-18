@@ -85,7 +85,7 @@ func (fbfd *FrameBasedFormatDescriptor) UnmarshalBinary(buf []byte) error {
 	}
 	fbfd.FormatIndex = buf[3]
 	fbfd.NumFrameDescriptors = buf[4]
-	copyGUID(fbfd.GUIDFormat[:], buf[5:21])
+	copyGUID(fbfd.GUIDFormat, buf[5:21])
 	fbfd.BitsPerPixel = buf[21]
 	fbfd.DefaultFrameIndex = buf[22]
 	fbfd.AspectRatioX = buf[23]
@@ -107,6 +107,10 @@ func (fbfd *FrameBasedFormatDescriptor) FourCC() ([4]byte, error) {
 func (fbfd *FrameBasedFormatDescriptor) isStreamingInterface() {}
 
 func (fbfd *FrameBasedFormatDescriptor) isFormatDescriptor() {}
+
+func (fbfd *FrameBasedFormatDescriptor) Index() uint8 {
+	return fbfd.FormatIndex
+}
 
 type FrameBasedFrameDescriptor struct {
 	FrameIndex             uint8
@@ -163,3 +167,7 @@ func (fbfd *FrameBasedFrameDescriptor) UnmarshalBinary(buf []byte) error {
 func (fbfd *FrameBasedFrameDescriptor) isStreamingInterface() {}
 
 func (fbfd *FrameBasedFrameDescriptor) isFrameDescriptor() {}
+
+func (fbfd *FrameBasedFrameDescriptor) Index() uint8 {
+	return fbfd.FrameIndex
+}

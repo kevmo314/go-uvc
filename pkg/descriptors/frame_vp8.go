@@ -124,6 +124,10 @@ func (vfd *VP8FormatDescriptor) isStreamingInterface() {}
 
 func (vfd *VP8FormatDescriptor) isFormatDescriptor() {}
 
+func (vfd *VP8FormatDescriptor) Index() uint8 {
+	return vfd.FormatIndex
+}
+
 type VP8FrameDescriptor struct {
 	FrameIndex                     uint8
 	Width, Height                  uint16
@@ -164,3 +168,7 @@ func (vfd *VP8FrameDescriptor) UnmarshalBinary(buf []byte) error {
 func (vfd *VP8FrameDescriptor) isStreamingInterface() {}
 
 func (vfd *VP8FrameDescriptor) isFrameDescriptor() {}
+
+func (vfd *VP8FrameDescriptor) Index() uint8 {
+	return vfd.FrameIndex
+}

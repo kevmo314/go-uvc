@@ -92,6 +92,10 @@ func (mfd *MJPEGFormatDescriptor) isStreamingInterface() {}
 
 func (mfd *MJPEGFormatDescriptor) isFormatDescriptor() {}
 
+func (mfd *MJPEGFormatDescriptor) Index() uint8 {
+	return mfd.FormatIndex
+}
+
 type MJPEGFrameDescriptor struct {
 	FrameIndex              uint8
 	Capabilities            uint8
@@ -145,3 +149,7 @@ func (mfd *MJPEGFrameDescriptor) UnmarshalBinary(buf []byte) error {
 func (mfd *MJPEGFrameDescriptor) isStreamingInterface() {}
 
 func (mfd *MJPEGFrameDescriptor) isFrameDescriptor() {}
+
+func (mfd *MJPEGFrameDescriptor) Index() uint8 {
+	return mfd.FrameIndex
+}
