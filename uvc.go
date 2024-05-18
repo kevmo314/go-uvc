@@ -96,7 +96,7 @@ type DeviceInfo struct {
 	deviceHandle        *C.struct_libusb_device_handle
 	configDesc          *C.struct_libusb_config_descriptor
 	videoInterface      *C.struct_libusb_interface // cached since it's used a lot
-	controlInterface    []descriptors.ControlInterface
+	ControlInterfaces   []descriptors.ControlInterface
 	StreamingInterfaces []*StreamingInterface
 }
 
@@ -141,7 +141,7 @@ func (d *UVCDevice) DeviceInfo() (*DeviceInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		info.controlInterface = append(info.controlInterface, ci)
+		info.ControlInterfaces = append(info.ControlInterfaces, ci)
 		switch ci := ci.(type) {
 		case *descriptors.HeaderDescriptor:
 			info.bcdUVC = ci.UVC

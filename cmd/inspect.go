@@ -33,8 +33,13 @@ func main() {
 
 	app := tview.NewApplication()
 
-	streamingIfaces := tview.NewList().ShowSecondaryText(false)
+	streamingIfaces := tview.NewList()
 	streamingIfaces.SetBorder(true).SetTitle("Streaming Interfaces")
+
+	controlIfaces := tview.NewList().ShowSecondaryText(false)
+	controlIfaces.SetBorder(true).SetTitle("Control Interfaces")
+
+	ifaces := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(streamingIfaces, 0, 1, true).AddItem(controlIfaces, 0, 1, false)
 
 	formats := tview.NewList()
 	formats.SetBorder(true).SetTitle("Formats")
@@ -42,8 +47,11 @@ func main() {
 	frames := tview.NewList()
 	frames.SetBorder(true).SetTitle("Frames")
 
+	preview := tview.NewImage()
+	preview.SetBorder(true).SetTitle("Preview")
+
 	for _, si := range info.StreamingInterfaces {
-		streamingIfaces.AddItem(fmt.Sprintf("Interface %d (v%s)", si.InterfaceNumber(), si.UVCVersionString()), "", 0, func() {
+		streamingIfaces.AddItem(fmt.Sprintf("Interface %d", si.InterfaceNumber()), fmt.Sprintf("v%s", si.UVCVersionString()), 0, func() {
 			for fdIndex, d := range si.Descriptors {
 				if fd, ok := d.(descriptors.FormatDescriptor); ok {
 					formats.AddItem(formatDescriptorTitle(fd), formatDescriptorSubtitle(fd), 0, func() {
@@ -64,11 +72,17 @@ func main() {
 		})
 	}
 
+	for _, ci := range info.ControlInterfaces {
+		controlIfaces.AddItem(controlInterfaceTitle(ci), "", 0, func() {
+		})
+	}
+
 	// Create the layout.
 	flex := tview.NewFlex().
-		AddItem(streamingIfaces, 0, 1, true).
+		AddItem(ifaces, 0, 1, true).
 		AddItem(formats, 0, 1, false).
-		AddItem(frames, 0, 3, false)
+		AddItem(frames, 0, 1, false).
+		AddItem(preview, 0, 3, false)
 
 	if err := app.SetRoot(flex, true).Run(); err != nil {
 		panic(err)
@@ -172,6 +186,27 @@ func frameDescriptorSubtitle(fd descriptors.FrameDescriptor) string {
 		return fmt.Sprintf("Bitrate: %d-%d Mbps", fd.MinBitRate, fd.MaxBitRate)
 	case *descriptors.FrameBasedFrameDescriptor:
 		return fmt.Sprintf("Bitrate: %d-%d Mbps", fd.MinBitRate, fd.MaxBitRate)
+	default:
+		return "Unknown"
+	}
+}
+
+func controlInterfaceTitle(ci descriptors.ControlInterface) string {
+	switch ci.(type) {
+	case *descriptors.HeaderDescriptor:
+		return "Header"
+	case *descriptors.InputTerminalDescriptor:
+		return "Input Terminal"
+	case *descriptors.OutputTerminalDescriptor:
+		return "Output Terminal"
+	case *descriptors.SelectorUnitDescriptor:
+		return "Selector Unit"
+	case *descriptors.ProcessingUnitDescriptor:
+		return "Processing Unit"
+	case *descriptors.EncodingUnitDescriptor:
+		return "Encoding Unit"
+	case *descriptors.ExtensionUnitDescriptor:
+		return "Extension Unit"
 	default:
 		return "Unknown"
 	}
