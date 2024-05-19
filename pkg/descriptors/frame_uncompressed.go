@@ -83,7 +83,7 @@ func (ufd *UncompressedFormatDescriptor) UnmarshalBinary(buf []byte) error {
 	}
 	ufd.FormatIndex = buf[3]
 	ufd.NumFrameDescriptors = buf[4]
-	copyGUID(ufd.GUIDFormat, buf[5:21])
+	copyGUID(ufd.GUIDFormat[:], buf[5:21])
 	ufd.BitsPerPixel = buf[21]
 	ufd.DefaultFrameIndex = buf[22]
 	ufd.AspectRatioX = buf[23]

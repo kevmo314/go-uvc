@@ -1,6 +1,6 @@
 package descriptors
 
-func copyGUID(dst []byte, src []byte) {
+func copyGUID(dst, src []byte) {
 	// copy according to the GUID format defined in UVC spec 1.5, section 2.9.
 	dst[0] = src[3]
 	dst[1] = src[2]

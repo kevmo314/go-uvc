@@ -60,7 +60,7 @@ func (mfd *MPEG2TSFormatDescriptor) UnmarshalBinary(buf []byte) error {
 	mfd.DataOffset = buf[4]
 	mfd.PacketLength = buf[5]
 	mfd.StrideLength = buf[6]
-	copyGUID(mfd.GUIDStrideFormat, buf[7:23])
+	copyGUID(mfd.GUIDStrideFormat[:], buf[7:23])
 	return nil
 }
 

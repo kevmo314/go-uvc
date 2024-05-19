@@ -75,7 +75,7 @@ func (sbfd *StreamBasedFormatDescriptor) UnmarshalBinary(buf []byte) error {
 		return ErrInvalidDescriptor
 	}
 	sbfd.FormatIndex = buf[3]
-	copyGUID(sbfd.GUIDFormat, buf[4:20])
+	copyGUID(sbfd.GUIDFormat[:], buf[4:20])
 	sbfd.PacketLength = binary.LittleEndian.Uint32(buf[20:24])
 	return nil
 }
