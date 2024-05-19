@@ -1,8 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"image"
+	"image/jpeg"
+	"log"
 	"os"
+	"sync/atomic"
+	"time"
+
+	"golang.org/x/image/draw"
 
 	"github.com/kevmo314/go-uvc"
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
@@ -26,6 +34,8 @@ func main() {
 		panic(err)
 	}
 
+	go dev.EventLoop()
+
 	info, err := dev.DeviceInfo()
 	if err != nil {
 		panic(err)
@@ -48,20 +58,55 @@ func main() {
 	frames.SetBorder(true).SetTitle("Frames")
 
 	preview := tview.NewImage()
-	preview.SetBorder(true).SetTitle("Preview")
+	preview.SetColors(256).SetDithering(tview.DitheringNone).SetBorder(true).SetTitle("Preview")
+
+	logText := tview.NewTextView()
+	logText.SetMaxLines(3).SetBorder(true).SetTitle("Log")
+
+	log.SetOutput(logText)
+
+	active := &atomic.Uint32{}
 
 	for _, si := range info.StreamingInterfaces {
 		streamingIfaces.AddItem(fmt.Sprintf("Interface %d", si.InterfaceNumber()), fmt.Sprintf("v%s", si.UVCVersionString()), 0, func() {
 			for fdIndex, d := range si.Descriptors {
 				if fd, ok := d.(descriptors.FormatDescriptor); ok {
 					formats.AddItem(formatDescriptorTitle(fd), formatDescriptorSubtitle(fd), 0, func() {
-						frs := si.Descriptors[fdIndex+1 : fdIndex+int(numFrameDescriptors(fd))+1]
-						for k, fr := range frs {
+						frs := si.Descriptors[fdIndex+1 : fdIndex+int(NumFrameDescriptors(fd))+1]
+						for _, fr := range frs {
 							if fr, ok := fr.(descriptors.FrameDescriptor); ok {
-								frames.AddItem(frameDescriptorTitle(fr), frameDescriptorSubtitle(fr),
-									0, func() {
-										fmt.Printf("got frame %d\n", k)
-									})
+								frames.AddItem(frameDescriptorTitle(fr), frameDescriptorSubtitle(fr), 0, func() {
+									track := active.Add(1)
+									app.SetFocus(preview)
+									reader, err := si.ClaimFrameReader(fd.Index(), fr.Index())
+									if err != nil {
+										panic(err)
+									}
+									go func() {
+										log.Printf("starting frame reader %d", track)
+										defer reader.Close()
+										t0 := time.Now().Add(-1 * time.Second)
+										for i := 0; active.Load() == track; i++ {
+											fr, err := reader.ReadFrame()
+											if err != nil {
+												panic(err)
+											}
+											t1 := time.Now()
+											if t1.Sub(t0) < 50*time.Millisecond {
+												continue
+											}
+											t0 = t1
+											img, err := jpeg.Decode(bytes.NewReader(fr.Data))
+											if err != nil {
+												continue
+											}
+											w := 64
+											h := img.Bounds().Dy() * w / img.Bounds().Dx()
+											preview.SetImage(resize(img, w, h))
+											app.ForceDraw()
+										}
+									}()
+								})
 							}
 						}
 						app.SetFocus(frames)
@@ -78,18 +123,25 @@ func main() {
 	}
 
 	// Create the layout.
+
 	flex := tview.NewFlex().
 		AddItem(ifaces, 0, 1, true).
 		AddItem(formats, 0, 1, false).
 		AddItem(frames, 0, 1, false).
 		AddItem(preview, 0, 3, false)
 
-	if err := app.SetRoot(flex, true).Run(); err != nil {
+	if err := app.SetRoot(tview.NewFlex().SetDirection(tview.FlexRow).AddItem(flex, 0, 1, true).AddItem(logText, 5, 0, false), true).Run(); err != nil {
 		panic(err)
 	}
 }
 
-func numFrameDescriptors(fd descriptors.FormatDescriptor) uint8 {
+func resize(img image.Image, w, h int) *image.RGBA {
+	dst := image.NewRGBA(image.Rect(0, 0, w, h))
+	draw.NearestNeighbor.Scale(dst, dst.Bounds(), img, img.Bounds(), draw.Over, nil)
+	return dst
+}
+
+func NumFrameDescriptors(fd descriptors.FormatDescriptor) uint8 {
 	// darn you golang and your lack of structural typing.
 	switch fd := fd.(type) {
 	case *descriptors.MJPEGFormatDescriptor:

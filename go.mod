@@ -4,7 +4,9 @@ go 1.22.2
 
 require (
 	github.com/google/uuid v1.6.0
+	github.com/mattn/go-pointer v0.0.1
 	github.com/rivo/tview v0.0.0-20240505185119-ed116790de0f
+	golang.org/x/image v0.16.0
 )
 
 require (
@@ -15,5 +17,5 @@ require (
 	github.com/rivo/uniseg v0.4.7 // indirect
 	golang.org/x/sys v0.17.0 // indirect
 	golang.org/x/term v0.17.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/text v0.15.0 // indirect
 )
