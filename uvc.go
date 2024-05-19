@@ -9,6 +9,7 @@ import "C"
 import (
 	"fmt"
 	"log"
+	"sync/atomic"
 	"unsafe"
 
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
@@ -19,10 +20,11 @@ type UVCDevice struct {
 	usbctx *C.libusb_context
 	handle *C.libusb_device_handle
 	device *C.libusb_device
+	closed *atomic.Bool
 }
 
 func NewUVCDevice(fd uintptr) (*UVCDevice, error) {
-	dev := &UVCDevice{}
+	dev := &UVCDevice{closed: &atomic.Bool{}}
 	if ret := C.libusb_init(&dev.usbctx); ret < 0 {
 		return nil, fmt.Errorf("libusb_init_context failed: %d", libusberror(ret))
 	}
@@ -37,12 +39,26 @@ func NewUVCDevice(fd uintptr) (*UVCDevice, error) {
 	return dev, nil
 }
 
+func (d *UVCDevice) EventLoop() error {
+	for !d.closed.Load() {
+		if ret := C.libusb_handle_events(d.usbctx); ret < 0 {
+			return fmt.Errorf("libusb_handle_events failed: %d", libusberror(ret))
+		}
+	}
+	return nil
+}
+
 func (d *UVCDevice) IsTISCamera() (bool, error) {
 	var desc C.struct_libusb_device_descriptor
 	if ret := C.libusb_get_device_descriptor(d.device, &desc); ret < 0 {
 		return false, fmt.Errorf("libusb_get_device_descriptor failed: %d", libusberror(ret))
 	}
 	return desc.idVendor == 0x199e && (desc.idProduct == 0x8101 || desc.idProduct == 0x8102), nil
+}
+
+func (d *UVCDevice) Close() error {
+	d.closed.Store(true)
+	return nil
 }
 
 type StreamingInterface struct {
@@ -171,15 +187,8 @@ func (d *DeviceInfo) Close() error {
 	return nil
 }
 
-type FrameReader struct {
-	si     *StreamingInterface
-	config *descriptors.VideoProbeCommitControl
-}
-
 func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*FrameReader, error) {
 	ifnum := si.usb.altsetting.bInterfaceNumber
-
-	log.Printf("negotiating format for interface %d", ifnum)
 
 	// claim the control interface
 	if ret := C.libusb_detach_kernel_driver(si.deviceHandle, C.int(ifnum)); ret < 0 {
@@ -212,8 +221,6 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 	if err := vpcc.UnmarshalBinary(C.GoBytes(unsafe.Pointer(buf), C.int(size))); err != nil {
 		return nil, err
 	}
-
-	log.Printf("%#v", vpcc)
 
 	// call set
 	if ret := C.libusb_control_transfer(
@@ -258,88 +265,8 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 	}
 
 	// unmarshal the negotiated values
-	return &FrameReader{
-		si:     si,
-		config: vpcc,
-	}, vpcc.UnmarshalBinary(C.GoBytes(unsafe.Pointer(buf), C.int(size)))
-}
-
-// //export frameReaderCallback
-// func frameReaderCallback(frame []byte, userData unsafe.Pointer) {
-// 	fr := (*FrameReader)(userData)
-// 	fr.callback(frame)
-// }
-
-func (r *FrameReader) ReadFrame() ([]byte, error) {
-	size := r.config.MaxPayloadTransferSize
-	buf := C.malloc(C.ulong(size))
-	defer C.free(buf)
-
-	inputs := r.si.InputHeaderDescriptors()
-	if len(inputs) == 0 {
-		return nil, fmt.Errorf("no input header descriptors found")
+	if err := vpcc.UnmarshalBinary(C.GoBytes(unsafe.Pointer(buf), C.int(size))); err != nil {
+		return nil, err
 	}
-
-	log.Printf("got input header descriptors: %#v", inputs[0].EndpointAddress)
-
-	log.Printf("num altsetting %d", (r.si.usb.num_altsetting))
-
-	if r.si.usb.num_altsetting > 1 {
-		// configure isochronous transfer
-		altsettings := (*[1 << 30]C.struct_libusb_interface_descriptor)(unsafe.Pointer(r.si.usb.altsetting))[:r.si.usb.num_altsetting]
-		for _, altsetting := range altsettings {
-			log.Printf("altsettin iface %d altsetting %d num endpoints %d", altsetting.bInterfaceNumber, altsetting.bAlternateSetting, altsetting.bNumEndpoints)
-			if altsetting.bNumEndpoints == 0 {
-				continue
-			}
-			endpoints := (*[1 << 30]C.struct_libusb_endpoint_descriptor)(unsafe.Pointer(altsetting.endpoint))[:altsetting.bNumEndpoints]
-			var bpp uint16
-			for _, endpoint := range endpoints {
-				// if endpoint.bmAttributes&0b11 != C.LIBUSB_TRANSFER_TYPE_ISOCHRONOUS || endpoint.bEndpointAddress&0b1100 != C.LIBUSB_ISO_SYNC_TYPE_ASYNC {
-				// 	log.Printf("skipping endpoint %d", endpoint.bEndpointAddress)
-				// 	continue
-				// }
-				var ssdesc *C.struct_libusb_ss_endpoint_companion_descriptor
-				if ret := C.libusb_get_ss_endpoint_companion_descriptor(nil, &endpoint, &ssdesc); ret == 0 {
-					bpp = uint16(ssdesc.wBytesPerInterval)
-					C.libusb_free_ss_endpoint_companion_descriptor(ssdesc)
-					break
-				} else {
-					// usb 2.0 endpoint
-					if endpoint.bEndpointAddress != C.uchar(inputs[0].EndpointAddress) {
-						continue
-					}
-					bpp = uint16(endpoint.wMaxPacketSize)
-					break
-				}
-			}
-			if uint32(bpp) >= size {
-				log.Printf("setting altsetting %d to %d", altsetting.bAlternateSetting, bpp)
-				if ret := C.libusb_set_interface_alt_setting(r.si.deviceHandle, C.int(altsetting.bInterfaceNumber), C.int(altsetting.bAlternateSetting)); ret < 0 {
-					return nil, fmt.Errorf("libusb_set_interface_alt_setting failed: %w", libusberror(ret))
-				}
-				break
-			}
-		}
-	}
-
-	var n C.int
-	if ret := C.libusb_bulk_transfer(
-		r.si.deviceHandle,
-		C.uchar(inputs[0].EndpointAddress), /* endpoint */
-		(*C.uchar)(buf),                    /* data */
-		C.int(size),                        /* length */
-		&n,                                 /* transferred */
-		0,                                  /* timeout */
-	); ret < 0 {
-		return nil, fmt.Errorf("libusb_bulk_transfer failed: %w", libusberror(ret))
-	}
-	return C.GoBytes(unsafe.Pointer(buf), C.int(n)), nil
-}
-
-func (r *FrameReader) Close() error {
-	if ret := C.libusb_release_interface(r.si.deviceHandle, C.int(r.si.usb.altsetting.bInterfaceNumber)); ret < 0 {
-		return fmt.Errorf("libusb_release_interface failed: %w", libusberror(ret))
-	}
-	return nil
+	return NewFrameReader(si, vpcc)
 }
