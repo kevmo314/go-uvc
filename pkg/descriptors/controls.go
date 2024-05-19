@@ -114,3 +114,27 @@ func (vpcc *VideoProbeCommitControl) UnmarshalBinary(buf []byte) error {
 	}
 	return nil
 }
+
+// Control Request for Focus, Auto Control as defined in UVC spec 1.5, 4.2.2.1.9
+type FocusAutoControl struct {
+	FocusAuto bool
+}
+
+func (fac *FocusAutoControl) MarshalSize() int {
+	return 1
+}
+
+func (fac *FocusAutoControl) MarshalBinary() ([]byte, error) {
+	buf := make([]byte, 1)
+	byteValue := byte(0)
+	if fac.FocusAuto {
+		byteValue = byte(1)
+	}
+	buf[0] = byteValue
+	return buf, nil
+}
+
+func (fac *FocusAutoControl) UnmarshalBinary(buf []byte) error {
+	fac.FocusAuto = buf[0] == 1
+	return nil
+}

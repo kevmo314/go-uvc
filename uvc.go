@@ -61,6 +61,11 @@ func (d *UVCDevice) Close() error {
 	return nil
 }
 
+type ControlInterface struct {
+	CameraTerminal *CameraTerminal
+	Descriptor     descriptors.ControlInterface
+}
+
 type StreamingInterface struct {
 	usbctx       *C.libusb_context
 	bcdUVC       uint16 // cached since it's used a lot
@@ -112,7 +117,7 @@ type DeviceInfo struct {
 	deviceHandle        *C.struct_libusb_device_handle
 	configDesc          *C.struct_libusb_config_descriptor
 	videoInterface      *C.struct_libusb_interface // cached since it's used a lot
-	ControlInterfaces   []descriptors.ControlInterface
+	ControlInterfaces   []*ControlInterface
 	StreamingInterfaces []*StreamingInterface
 }
 
@@ -157,8 +162,22 @@ func (d *UVCDevice) DeviceInfo() (*DeviceInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		info.ControlInterfaces = append(info.ControlInterfaces, ci)
 		switch ci := ci.(type) {
+		case *descriptors.InputTerminalDescriptor:
+			it, err := descriptors.UnmarshalInputTerminal(block)
+			if err != nil {
+				return nil, err
+			}
+
+			switch camDesc := it.(type) {
+			case *descriptors.CameraTerminalDescriptor:
+				camera := &CameraTerminal{
+					usb:              &ifaces[ifaceIdx],
+					deviceHandle:     d.handle,
+					CameraDescriptor: camDesc,
+				}
+				info.ControlInterfaces = append(info.ControlInterfaces, &ControlInterface{CameraTerminal: camera, Descriptor: camDesc})
+			}
 		case *descriptors.HeaderDescriptor:
 			info.bcdUVC = ci.UVC
 			// pull the streaming interfaces too
@@ -176,6 +195,9 @@ func (d *UVCDevice) DeviceInfo() (*DeviceInfo, error) {
 				info.StreamingInterfaces = append(info.StreamingInterfaces, asi)
 				log.Printf("got streaming interface InterfaceNumber %d %d", i, ifaces[i].altsetting.bInterfaceNumber)
 			}
+		default:
+			// This is an interface that we have not yet parsed
+			info.ControlInterfaces = append(info.ControlInterfaces, &ControlInterface{Descriptor: ci})
 		}
 	}
 

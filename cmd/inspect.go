@@ -243,12 +243,14 @@ func frameDescriptorSubtitle(fd descriptors.FrameDescriptor) string {
 	}
 }
 
-func controlInterfaceTitle(ci descriptors.ControlInterface) string {
-	switch ci.(type) {
+func controlInterfaceTitle(ci *uvc.ControlInterface) string {
+	switch ci.Descriptor.(type) {
 	case *descriptors.HeaderDescriptor:
 		return "Header"
 	case *descriptors.InputTerminalDescriptor:
 		return "Input Terminal"
+	case *descriptors.CameraTerminalDescriptor:
+		return "Camera Terminal"
 	case *descriptors.OutputTerminalDescriptor:
 		return "Output Terminal"
 	case *descriptors.SelectorUnitDescriptor:
