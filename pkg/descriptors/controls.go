@@ -129,18 +129,18 @@ type AutoExposureModeControl struct {
 	Mode AutoExposureMode
 }
 
-func (fac *AutoExposureModeControl) MarshalSize() int {
+func (aemc *AutoExposureModeControl) MarshalSize() int {
 	return 1
 }
 
-func (fac *AutoExposureModeControl) MarshalBinary() ([]byte, error) {
+func (aemc *AutoExposureModeControl) MarshalBinary() ([]byte, error) {
 	buf := make([]byte, 1)
-	buf[0] = byte(fac.Mode)
+	buf[0] = byte(aemc.Mode)
 	return buf, nil
 }
 
-func (fac *AutoExposureModeControl) UnmarshalBinary(buf []byte) error {
-	fac.Mode = AutoExposureMode(buf[0])
+func (aemc *AutoExposureModeControl) UnmarshalBinary(buf []byte) error {
+	aemc.Mode = AutoExposureMode(buf[0])
 	return nil
 }
 
