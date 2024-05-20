@@ -8,7 +8,6 @@ package uvc
 import "C"
 import (
 	"fmt"
-	"log"
 	"sync/atomic"
 	"unsafe"
 
@@ -193,7 +192,6 @@ func (d *UVCDevice) DeviceInfo() (*DeviceInfo, error) {
 					asi.Descriptors = append(asi.Descriptors, si)
 				}
 				info.StreamingInterfaces = append(info.StreamingInterfaces, asi)
-				log.Printf("got streaming interface InterfaceNumber %d %d", i, ifaces[i].altsetting.bInterfaceNumber)
 			}
 		default:
 			// This is an interface that we have not yet parsed
@@ -240,7 +238,14 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 	}
 
 	// assign the values
-	if err := vpcc.UnmarshalBinary(C.GoBytes(unsafe.Pointer(buf), C.int(size))); err != nil {
+	if err := vpcc.UnmarshalBinary((*[1 << 30]byte)(unsafe.Pointer(buf))[:size]); err != nil {
+		return nil, err
+	}
+
+	vpcc.FormatIndex = formatIndex
+	vpcc.FrameIndex = frameIndex
+
+	if err := vpcc.MarshalInto((*[1 << 30]byte)(unsafe.Pointer(buf))[:size]); err != nil {
 		return nil, err
 	}
 
@@ -272,7 +277,7 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 		return nil, fmt.Errorf("libusb_control_transfer failed: %w", libusberror(ret))
 	}
 
-	// SET_INTERFACE
+	// perform a commit set
 	if ret := C.libusb_control_transfer(
 		si.deviceHandle,
 		C.uint8_t(requests.RequestTypeVideoInterfaceSetRequest), /* bmRequestType */
@@ -290,5 +295,6 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 	if err := vpcc.UnmarshalBinary(C.GoBytes(unsafe.Pointer(buf), C.int(size))); err != nil {
 		return nil, err
 	}
+
 	return NewFrameReader(si, vpcc)
 }

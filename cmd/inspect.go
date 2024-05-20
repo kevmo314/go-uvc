@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -80,11 +79,9 @@ func main() {
 									app.SetFocus(preview)
 									reader, err := si.ClaimFrameReader(fd.Index(), fr.Index())
 									if err != nil {
-										log.Printf("error claiming frame reader: %s", err)
 										return
 									}
 									go func() {
-										log.Printf("starting frame reader %d", track)
 										defer reader.Close()
 										t0 := time.Now().Add(-1 * time.Second)
 										for i := 0; active.Load() == track; i++ {
@@ -97,7 +94,7 @@ func main() {
 												continue
 											}
 											t0 = t1
-											img, err := jpeg.Decode(bytes.NewReader(fr.Data))
+											img, err := jpeg.Decode(fr)
 											if err != nil {
 												continue
 											}

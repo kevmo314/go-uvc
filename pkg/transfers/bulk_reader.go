@@ -10,7 +10,6 @@ void bulkReaderTransferCallback(struct libusb_transfer *transfer);
 import "C"
 import (
 	"fmt"
-	"log"
 	"unsafe"
 
 	"github.com/mattn/go-pointer"
@@ -28,7 +27,6 @@ func bulkReaderTransferCallback(transfer *C.struct_libusb_transfer) {
 	if transfer.status == C.LIBUSB_TRANSFER_COMPLETED {
 		r.readCh <- C.GoBytes(unsafe.Pointer(transfer.buffer), C.int(transfer.actual_length))
 		if ret := C.libusb_submit_transfer(transfer); ret < 0 {
-			log.Printf("libusb_submit_transfer failed: %s", C.GoString(C.libusb_error_name(ret)))
 			r.errCh <- fmt.Errorf("libusb_submit_transfer failed: %s", C.GoString(C.libusb_error_name(ret)))
 		}
 	} else {
@@ -39,7 +37,7 @@ func bulkReaderTransferCallback(transfer *C.struct_libusb_transfer) {
 func NewBulkReader(deviceHandle unsafe.Pointer, endpointAddress uint8, mtu uint32) (*BulkReader, error) {
 	// the libusb sync api seems to result in some partial reads on some devices so we use the async api
 	r := &BulkReader{
-		readCh: make(chan []byte, 16),
+		txReqs: make([]*C.struct_libusb_transfer, 0, 100),
 		errCh:  make(chan error),
 	}
 	for i := 0; ; i++ {
@@ -68,15 +66,17 @@ func NewBulkReader(deviceHandle unsafe.Pointer, endpointAddress uint8, mtu uint3
 		}
 		r.txReqs = append(r.txReqs, tx)
 	}
+	r.readCh = make(chan []byte, len(r.txReqs))
 	return r, nil
 }
 
-func (r *BulkReader) Read(buf []byte) (int, error) {
+func (r *BulkReader) ReadPayload() (*Payload, error) {
 	select {
 	case <-r.errCh:
-		return 0, <-r.errCh
+		return nil, <-r.errCh
 	case <-r.readCh:
-		return copy(buf, <-r.readCh), nil
+		p := &Payload{}
+		return p, p.UnmarshalBinary(<-r.readCh)
 	}
 }
 

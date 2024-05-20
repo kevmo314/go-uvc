@@ -7,10 +7,8 @@ package uvc
 */
 import "C"
 import (
-	"encoding/binary"
 	"fmt"
 	"io"
-	"log"
 	"unsafe"
 
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
@@ -20,83 +18,69 @@ import (
 type FrameReader struct {
 	si     *StreamingInterface
 	config *descriptors.VideoProbeCommitControl
-	reader io.Reader
-	buf    []byte
+	pr     transfers.PayloadReader
+	fid    bool
 }
 
 type Frame struct {
-	HeaderInfoBitmask uint8
-	PTS               uint32
-	SCR               struct {
-		SourceTimeClock uint32
-		TokenCounter    uint16
+	Payloads      []*transfers.Payload
+	index, offset int
+}
+
+// Read reads the payload datas concatenated together.
+func (f *Frame) Read(buf []byte) (int, error) {
+	total := 0
+	for _, p := range f.Payloads {
+		total += len(p.Data)
 	}
-	Data []byte
-}
-
-func (f *Frame) FrameID() bool {
-	return f.HeaderInfoBitmask&0b00000001 != 0
-}
-
-func (f *Frame) EndOfFrame() bool {
-	return f.HeaderInfoBitmask&0b00000010 != 0
-}
-
-func (f *Frame) HasPTS() bool {
-	return f.HeaderInfoBitmask&0b00000100 != 0
-}
-
-func (f *Frame) HasSCR() bool {
-	return f.HeaderInfoBitmask&0b00001000 != 0
-}
-
-func (f *Frame) PayloadSpecificBit() bool {
-	return f.HeaderInfoBitmask&0b00010000 != 0
-}
-
-func (f *Frame) StillImage() bool {
-	return f.HeaderInfoBitmask&0b00100000 != 0
-}
-
-func (f *Frame) Error() bool {
-	return f.HeaderInfoBitmask&0b01000000 != 0
-}
-
-func (f *Frame) EndOfHeader() bool {
-	return f.HeaderInfoBitmask&0b10000000 != 0
-}
-
-func (f *Frame) UnmarshalBinary(buf []byte) error {
-	if len(buf) < int(buf[0]) {
-		return io.ErrShortBuffer
+	n := 0
+	for n < len(buf) {
+		if f.index == len(f.Payloads) {
+			if n == 0 {
+				return 0, io.EOF
+			}
+			return n, nil
+		}
+		p := f.Payloads[f.index]
+		m := copy(buf[n:], p.Data[f.offset:])
+		f.offset += m
+		n += m
+		if f.offset >= len(p.Data) {
+			f.index++
+			f.offset = 0
+		}
 	}
-	f.HeaderInfoBitmask = buf[1]
-	offset := 2
-	if f.HasPTS() {
-		f.PTS = binary.LittleEndian.Uint32(buf[offset : offset+4])
-		offset += 4
-	}
-	if f.HasSCR() {
-		f.SCR.SourceTimeClock = binary.LittleEndian.Uint32(buf[offset : offset+4])
-		offset += 4
-		f.SCR.TokenCounter = binary.LittleEndian.Uint16(buf[offset : offset+2])
-		offset += 2
-	}
-	f.Data = buf[offset:]
-	return nil
+	return n, nil
 }
 
 func NewFrameReader(si *StreamingInterface, config *descriptors.VideoProbeCommitControl) (*FrameReader, error) {
+	inputs := si.InputHeaderDescriptors()
+	if len(inputs) == 0 {
+		return nil, fmt.Errorf("no input header descriptors found")
+	}
+
+	endpointAddress := inputs[0].EndpointAddress // take the first input header. TODO: should we select an input header?
+
 	useIsochronous := si.usb.num_altsetting > 1
 	if useIsochronous {
-		panic("not yet implemented")
-	} else {
-		inputs := si.InputHeaderDescriptors()
-		if len(inputs) == 0 {
-			return nil, fmt.Errorf("no input header descriptors found")
+		altsetting, packetSize, err := findIsochronousAltSetting(si.usbctx, si.usb, C.uchar(endpointAddress), config.MaxPayloadTransferSize)
+		if err != nil {
+			return nil, err
 		}
-
-		log.Printf("got input header descriptors: %#v", inputs[0].EndpointAddress)
+		if ret := C.libusb_set_interface_alt_setting(si.deviceHandle, C.int(altsetting.bInterfaceNumber), C.int(altsetting.bAlternateSetting)); ret < 0 {
+			return nil, fmt.Errorf("libusb_set_interface_alt_setting failed: %w", libusberror(ret))
+		}
+		packets := min((config.MaxVideoFrameSize+packetSize-1)/packetSize, 32)
+		ir, err := transfers.NewIsochronousReader(unsafe.Pointer(si.deviceHandle), endpointAddress, packets, packetSize)
+		if err != nil {
+			return nil, err
+		}
+		return &FrameReader{
+			si:     si,
+			config: config,
+			pr:     ir,
+		}, nil
+	} else {
 		br, err := transfers.NewBulkReader(unsafe.Pointer(si.deviceHandle), inputs[0].EndpointAddress, config.MaxPayloadTransferSize)
 		if err != nil {
 			return nil, err
@@ -104,86 +88,92 @@ func NewFrameReader(si *StreamingInterface, config *descriptors.VideoProbeCommit
 		return &FrameReader{
 			si:     si,
 			config: config,
-			reader: br,
-			buf:    make([]byte, config.MaxPayloadTransferSize),
+			pr:     br,
 		}, nil
 	}
 }
 
-func (r *FrameReader) ReadFrame() (*Frame, error) {
-	n, err := r.reader.Read(r.buf)
-	if err != nil {
-		return nil, err
+func findAltEndpoint(endpoints []C.struct_libusb_endpoint_descriptor, endpointAddress C.uchar) (int, error) {
+	for i, endpoint := range endpoints {
+		if endpoint.bEndpointAddress == endpointAddress {
+			return i, nil
+		}
 	}
-	f := &Frame{}
-	return f, f.UnmarshalBinary(r.buf[:n])
-	// size := r.config.MaxPayloadTransferSize
-	// buf := C.malloc(C.ulong(size))
-	// defer C.free(buf)
+	return 0, fmt.Errorf("endpoint not found")
+}
 
-	// inputs := r.si.InputHeaderDescriptors()
-	// if len(inputs) == 0 {
-	// 	return nil, fmt.Errorf("no input header descriptors found")
-	// }
+func getEndpointMaxPacketSize(ctx *C.struct_libusb_context, endpoint C.struct_libusb_endpoint_descriptor) uint32 {
+	var ssdesc *C.struct_libusb_ss_endpoint_companion_descriptor
+	ret := C.libusb_get_ss_endpoint_companion_descriptor(ctx, &endpoint, &ssdesc)
+	if ret == 0 {
+		defer C.libusb_free_ss_endpoint_companion_descriptor(ssdesc)
+		return uint32(ssdesc.wBytesPerInterval)
+	}
+	val := endpoint.wMaxPacketSize & 0x07ff
+	endpointType := endpoint.bmAttributes & 0x03
+	if endpointType == C.LIBUSB_TRANSFER_TYPE_ISOCHRONOUS || endpointType == C.LIBUSB_TRANSFER_TYPE_INTERRUPT {
+		val *= 1 + ((val >> 1) & 3)
+	}
+	return uint32(val)
 
-	// log.Printf("got input header descriptors: %#v", inputs[0].EndpointAddress)
+}
 
-	// log.Printf("num altsetting %d", (r.si.usb.num_altsetting))
+// findIsochronousAltSetting sets the isochronous alternate setting for the given interface and endpoint address to the
+// first alternate setting that has a max packet size of at least mtu.
+//
+// UVC spec 1.5, section 2.4.3: A typical use of alternate settings is to provide a way to change the bandwidth requirements an active
+// isochronous pipe imposes on the USB.
+func findIsochronousAltSetting(ctx *C.struct_libusb_context, iface *C.struct_libusb_interface, endpointAddress C.uchar, payloadSize uint32) (*C.struct_libusb_interface_descriptor, uint32, error) {
+	altsettings := (*[1 << 30]C.struct_libusb_interface_descriptor)(unsafe.Pointer(iface.altsetting))[:iface.num_altsetting]
+	for _, altsetting := range altsettings {
+		if altsetting.bNumEndpoints == 0 {
+			// UVC spec 1.5, section 2.4.3: All devices that transfer isochronous video data must
+			// incorporate a zero-bandwidth alternate setting for each VideoStreaming interface that has an
+			// isochronous video endpoint, and it must be the default alternate setting (alternate setting zero).
+			//
+			// in other words, if there aren't any endpoints on this alternate setting it's reserved for a zero-bandwidth
+			// alternate setting so we can't use it and should skip it.
+			continue
+		}
+		endpoints := (*[1 << 30]C.struct_libusb_endpoint_descriptor)(unsafe.Pointer(altsetting.endpoint))[:altsetting.bNumEndpoints]
 
-	// if r.si.usb.num_altsetting > 1 {
-	// 	// configure isochronous transfer
-	// 	altsettings := (*[1 << 30]C.struct_libusb_interface_descriptor)(unsafe.Pointer(r.si.usb.altsetting))[:r.si.usb.num_altsetting]
-	// 	for _, altsetting := range altsettings {
-	// 		log.Printf("altsettin iface %d altsetting %d num endpoints %d", altsetting.bInterfaceNumber, altsetting.bAlternateSetting, altsetting.bNumEndpoints)
-	// 		if altsetting.bNumEndpoints == 0 {
-	// 			continue
-	// 		}
-	// 		endpoints := (*[1 << 30]C.struct_libusb_endpoint_descriptor)(unsafe.Pointer(altsetting.endpoint))[:altsetting.bNumEndpoints]
-	// 		var bpp uint16
-	// 		for _, endpoint := range endpoints {
-	// 			// if endpoint.bmAttributes&0b11 != C.LIBUSB_TRANSFER_TYPE_ISOCHRONOUS || endpoint.bEndpointAddress&0b1100 != C.LIBUSB_ISO_SYNC_TYPE_ASYNC {
-	// 			// 	log.Printf("skipping endpoint %d", endpoint.bEndpointAddress)
-	// 			// 	continue
-	// 			// }
-	// 			var ssdesc *C.struct_libusb_ss_endpoint_companion_descriptor
-	// 			if ret := C.libusb_get_ss_endpoint_companion_descriptor(nil, &endpoint, &ssdesc); ret == 0 {
-	// 				bpp = uint16(ssdesc.wBytesPerInterval)
-	// 				C.libusb_free_ss_endpoint_companion_descriptor(ssdesc)
-	// 				break
-	// 			} else {
-	// 				// usb 2.0 endpoint
-	// 				if endpoint.bEndpointAddress != C.uchar(inputs[0].EndpointAddress) {
-	// 					continue
-	// 				}
-	// 				bpp = uint16(endpoint.wMaxPacketSize)
-	// 				break
-	// 			}
-	// 		}
-	// 		if uint32(bpp) >= size {
-	// 			log.Printf("setting altsetting %d to %d", altsetting.bAlternateSetting, bpp)
-	// 			if ret := C.libusb_set_interface_alt_setting(r.si.deviceHandle, C.int(altsetting.bInterfaceNumber), C.int(altsetting.bAlternateSetting)); ret < 0 {
-	// 				return nil, fmt.Errorf("libusb_set_interface_alt_setting failed: %w", libusberror(ret))
-	// 			}
-	// 			break
-	// 		}
-	// 	}
-	// }
+		j, err := findAltEndpoint(endpoints, endpointAddress)
+		if err != nil {
+			return nil, 0, err
+		}
 
-	// var n C.int
-	// if ret := C.libusb_bulk_transfer(
-	// 	r.si.deviceHandle,
-	// 	C.uchar(inputs[0].EndpointAddress), /* endpoint */
-	// 	(*C.uchar)(buf),                    /* data */
-	// 	C.int(size),                        /* length */
-	// 	&n,                                 /* transferred */
-	// 	0,                                  /* timeout */
-	// ); ret < 0 {
-	// 	return nil, fmt.Errorf("libusb_bulk_transfer failed: %w", libusberror(ret))
-	// }
+		packetSize := getEndpointMaxPacketSize(ctx, endpoints[j])
+		if packetSize >= payloadSize { // packets*packetSize >= payloadSize {
+			return &altsetting, packetSize, nil
+		}
+	}
+	return nil, 0, fmt.Errorf("no alternate setting with a max packet size of at least %d", payloadSize)
+}
 
-	// log.Printf("address: %d size: %d read: %d", inputs[0].EndpointAddress, size, n)
-	// f := &Frame{}
-	// return f, f.UnmarshalBinary(C.GoBytes(unsafe.Pointer(buf), C.int(n)))
+// ReadFrame reads individual payloads from the USB device and returns a constructed frame.
+func (r *FrameReader) ReadFrame() (*Frame, error) {
+	var f *Frame
+	for {
+		p, err := r.pr.ReadPayload()
+		if err != nil {
+			return nil, err
+		}
+		if p.FrameID() != r.fid {
+			// frame id bit flipped, this is a new frame
+			if f != nil {
+				panic("frame id bit flipped but frame already read")
+			}
+			f = &Frame{}
+			r.fid = p.FrameID()
+		}
+		if f == nil {
+			continue
+		}
+		f.Payloads = append(f.Payloads, p)
+		if p.EndOfFrame() {
+			return f, nil
+		}
+	}
 }
 
 func (r *FrameReader) Close() error {
