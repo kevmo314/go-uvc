@@ -218,7 +218,7 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 		return nil, fmt.Errorf("libusb_claim_interface failed: %w", libusberror(ret))
 	}
 	vpcc := &descriptors.VideoProbeCommitControl{}
-	size := vpcc.MarshalSize(si.bcdUVC)
+	size := 48
 
 	buf := C.malloc(C.ulong(size))
 	defer C.free(buf)
