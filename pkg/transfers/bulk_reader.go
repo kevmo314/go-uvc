@@ -40,7 +40,7 @@ func NewBulkReader(deviceHandle unsafe.Pointer, endpointAddress uint8, mtu uint3
 		txReqs: make([]*C.struct_libusb_transfer, 0, 100),
 		errCh:  make(chan error),
 	}
-	for i := 0; ; i++ {
+	for i := 0; i < 100; i++ {
 		tx := C.libusb_alloc_transfer(0)
 		if tx == nil {
 			return nil, fmt.Errorf("libusb_alloc_transfer failed")
@@ -74,9 +74,9 @@ func (r *BulkReader) ReadPayload() (*Payload, error) {
 	select {
 	case <-r.errCh:
 		return nil, <-r.errCh
-	case <-r.readCh:
+	case b := <-r.readCh:
 		p := &Payload{}
-		return p, p.UnmarshalBinary(<-r.readCh)
+		return p, p.UnmarshalBinary(b)
 	}
 }
 
