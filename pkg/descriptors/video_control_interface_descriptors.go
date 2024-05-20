@@ -12,6 +12,15 @@ type ControlInterface interface {
 	isControlInterface()
 }
 
+func UnmarshalInputTerminal(buf []byte) (ControlInterface, error) {
+	var desc ControlInterface
+	switch InputTerminalType(binary.LittleEndian.Uint16(buf[4:6])) {
+	case InputTerminalTypeCamera:
+		desc = &CameraTerminalDescriptor{}
+	}
+	return desc, desc.UnmarshalBinary(buf)
+}
+
 func UnmarshalControlInterface(buf []byte) (ControlInterface, error) {
 	var desc ControlInterface
 	switch VideoControlInterfaceDescriptorSubtype(buf[2]) {
@@ -196,6 +205,7 @@ func (otd *OutputTerminalDescriptor) isControlInterface() {}
 
 // CameraTerminalDescriptor as defined in UVC spec 1.5, 3.7.2.3
 type CameraTerminalDescriptor struct {
+	InputTerminalDescriptor
 	ObjectiveFocalLengthMin uint16
 	ObjectiveFocalLengthMax uint16
 	OcularFocalLength       uint16
@@ -206,6 +216,14 @@ func (ctd *CameraTerminalDescriptor) UnmarshalBinary(buf []byte) error {
 	if len(buf) < int(buf[0]) {
 		return io.ErrShortBuffer
 	}
+
+	inputTerminalDesc := &InputTerminalDescriptor{}
+	err := inputTerminalDesc.UnmarshalBinary(buf)
+	if err != nil {
+		return err
+	}
+	ctd.InputTerminalDescriptor = *inputTerminalDesc
+
 	if ClassSpecificDescriptorType(buf[1]) != ClassSpecificDescriptorTypeInterface {
 		return ErrInvalidDescriptor
 	}
