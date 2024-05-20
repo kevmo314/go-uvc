@@ -39,11 +39,11 @@ func (ct *CameraTerminal) GetAutoExposureMode() (descriptors.AutoExposureMode, e
 		C.uint16_t(size), /* len */
 		0,                /* timeout */
 	); ret < 0 {
-		return -1, fmt.Errorf("libusb_control_transfer failed: %w", libusberror(ret))
+		return 0, fmt.Errorf("libusb_control_transfer failed: %w", libusberror(ret))
 	}
 
 	if err := fac.UnmarshalBinary(C.GoBytes(unsafe.Pointer(buf), C.int(size))); err != nil {
-		return -1, err
+		return 0, err
 	}
 
 	return fac.Mode, nil
