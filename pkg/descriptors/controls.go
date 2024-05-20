@@ -53,8 +53,7 @@ func (vpcc *VideoProbeCommitControl) MarshalSize(bcdUVC uint16) int {
 	return 48
 }
 
-func (vpcc *VideoProbeCommitControl) MarshalBinary() ([]byte, error) {
-	buf := make([]byte, 48)
+func (vpcc *VideoProbeCommitControl) MarshalInto(buf []byte) error {
 	binary.LittleEndian.PutUint16(buf[0:2], vpcc.HintBitmask)
 	buf[2] = vpcc.FormatIndex
 	buf[3] = vpcc.FrameIndex
@@ -66,21 +65,31 @@ func (vpcc *VideoProbeCommitControl) MarshalBinary() ([]byte, error) {
 	binary.LittleEndian.PutUint16(buf[16:18], vpcc.Delay)
 	binary.LittleEndian.PutUint32(buf[18:22], vpcc.MaxVideoFrameSize)
 	binary.LittleEndian.PutUint32(buf[22:26], vpcc.MaxPayloadTransferSize)
-	binary.LittleEndian.PutUint32(buf[26:30], vpcc.ClockFrequency)
-	buf[30] = vpcc.FramingInfoBitmask
-	buf[31] = vpcc.PreferedVersion
-	buf[32] = vpcc.MinVersion
-	buf[33] = vpcc.MaxVersion
-	buf[34] = vpcc.Usage
-	buf[35] = vpcc.BitDepthLuma
-	buf[36] = vpcc.SettingsBitmask
-	buf[37] = vpcc.MaxNumberOfRefFramesPlus1
-	binary.LittleEndian.PutUint16(buf[38:40], vpcc.RateControlModes)
-	binary.LittleEndian.PutUint16(buf[40:42], vpcc.LayoutPerStream[0])
-	binary.LittleEndian.PutUint16(buf[42:44], vpcc.LayoutPerStream[1])
-	binary.LittleEndian.PutUint16(buf[44:46], vpcc.LayoutPerStream[2])
-	binary.LittleEndian.PutUint16(buf[46:48], vpcc.LayoutPerStream[3])
-	return buf, nil
+	if len(buf) > 26 {
+		binary.LittleEndian.PutUint32(buf[26:30], vpcc.ClockFrequency)
+		buf[30] = vpcc.FramingInfoBitmask
+		buf[31] = vpcc.PreferedVersion
+		buf[32] = vpcc.MinVersion
+		buf[33] = vpcc.MaxVersion
+	}
+
+	if len(buf) > 34 {
+		buf[34] = vpcc.Usage
+		buf[35] = vpcc.BitDepthLuma
+		buf[36] = vpcc.SettingsBitmask
+		buf[37] = vpcc.MaxNumberOfRefFramesPlus1
+		binary.LittleEndian.PutUint16(buf[38:40], vpcc.RateControlModes)
+		binary.LittleEndian.PutUint16(buf[40:42], vpcc.LayoutPerStream[0])
+		binary.LittleEndian.PutUint16(buf[42:44], vpcc.LayoutPerStream[1])
+		binary.LittleEndian.PutUint16(buf[44:46], vpcc.LayoutPerStream[2])
+		binary.LittleEndian.PutUint16(buf[46:48], vpcc.LayoutPerStream[3])
+	}
+	return nil
+}
+
+func (vpcc *VideoProbeCommitControl) MarshalBinary() ([]byte, error) {
+	buf := make([]byte, 48)
+	return buf, vpcc.MarshalInto(buf)
 }
 
 func (vpcc *VideoProbeCommitControl) UnmarshalBinary(buf []byte) error {
