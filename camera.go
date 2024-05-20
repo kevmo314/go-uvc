@@ -63,6 +63,7 @@ func (ct *CameraTerminal) SetAutoFocus(on bool) error {
 	}
 
 	cPtr := (*C.uchar)(C.CBytes(buf))
+	defer C.free(unsafe.Pointer(cPtr))
 
 	//SET_CUR
 	if ret := C.libusb_control_transfer(
@@ -77,8 +78,6 @@ func (ct *CameraTerminal) SetAutoFocus(on bool) error {
 	); ret < 0 {
 		return fmt.Errorf("libusb_control_transfer failed: %w", libusberror(ret))
 	}
-
-	C.free(unsafe.Pointer(cPtr))
 
 	return nil
 }
