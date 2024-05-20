@@ -41,3 +41,11 @@ const (
 	AutoExposurePriorityConstant AutoExposurePriority = 0
 	AutoExposurePriorityDynamic  AutoExposurePriority = 1
 )
+
+type ExposureTimeRelative int
+
+const (
+	ExposureTimeRelativeDefault   ExposureTimeRelative = 0x00
+	ExposureTimeRelativeIncrement ExposureTimeRelative = 0x01
+	ExposureTimeRelativeDecrement ExposureTimeRelative = 0xFF
+)

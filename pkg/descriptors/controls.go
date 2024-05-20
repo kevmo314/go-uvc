@@ -165,6 +165,46 @@ func (aepc *AutoExposurePriorityControl) UnmarshalBinary(buf []byte) error {
 	return nil
 }
 
+// Control Request for Exposure Time (Absolute) as defined in UVC spec 1.5, 4.2.2.1.4
+type ExposureTimeAbsoluteControl struct {
+	Time uint32
+}
+
+func (etac *ExposureTimeAbsoluteControl) Value() int {
+	return int(CameraTerminalControlSelectorExposureTimeAbsoluteControl)
+}
+
+func (etac *ExposureTimeAbsoluteControl) MarshalBinary() ([]byte, error) {
+	buf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(buf, etac.Time)
+	return buf, nil
+}
+
+func (etrc *ExposureTimeAbsoluteControl) UnmarshalBinary(buf []byte) error {
+	etrc.Time = binary.LittleEndian.Uint32(buf)
+	return nil
+}
+
+// Control Request for Exposure Time (Relative) as defined in UVC spec 1.5, 4.2.2.1.5
+type ExposureTimeRelativeControl struct {
+	Time ExposureTimeRelative
+}
+
+func (etrc *ExposureTimeRelativeControl) Value() int {
+	return int(CameraTerminalControlSelectorExposureTimeRelativeControl)
+}
+
+func (etrc *ExposureTimeRelativeControl) MarshalBinary() ([]byte, error) {
+	buf := make([]byte, 1)
+	buf[0] = byte(etrc.Time)
+	return buf, nil
+}
+
+func (etrc *ExposureTimeRelativeControl) UnmarshalBinary(buf []byte) error {
+	etrc.Time = ExposureTimeRelative(buf[0])
+	return nil
+}
+
 // Control Request for Focus, Auto Control as defined in UVC spec 1.5, 4.2.2.1.9
 type FocusAutoControl struct {
 	FocusAuto bool

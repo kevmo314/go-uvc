@@ -8,7 +8,7 @@ import (
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
 )
 
-func TestAutoExposure(t *testing.T) {
+func TestAutoExposureMode(t *testing.T) {
 	fd, err := syscall.Open("/dev/bus/usb/001/002", syscall.O_RDWR, 0)
 	if err != nil {
 		t.Fatal(err)
