@@ -61,7 +61,7 @@ func main() {
 	preview.SetColors(256).SetDithering(tview.DitheringNone).SetBorder(true).SetTitle("Preview")
 
 	logText := tview.NewTextView()
-	logText.SetMaxLines(3).SetBorder(true).SetTitle("Log")
+	logText.SetMaxLines(10).SetBorder(true).SetTitle("Log")
 
 	log.SetOutput(logText)
 
@@ -80,7 +80,8 @@ func main() {
 									app.SetFocus(preview)
 									reader, err := si.ClaimFrameReader(fd.Index(), fr.Index())
 									if err != nil {
-										panic(err)
+										log.Printf("error claiming frame reader: %s", err)
+										return
 									}
 									go func() {
 										log.Printf("starting frame reader %d", track)
@@ -130,7 +131,7 @@ func main() {
 		AddItem(frames, 0, 1, false).
 		AddItem(preview, 0, 3, false)
 
-	if err := app.SetRoot(tview.NewFlex().SetDirection(tview.FlexRow).AddItem(flex, 0, 1, true).AddItem(logText, 5, 0, false), true).Run(); err != nil {
+	if err := app.SetRoot(tview.NewFlex().SetDirection(tview.FlexRow).AddItem(flex, 0, 1, true).AddItem(logText, 10, 0, false), true).Run(); err != nil {
 		panic(err)
 	}
 }
