@@ -5,6 +5,15 @@ import (
 	"time"
 )
 
+type AutoExposureMode int
+
+const (
+	AutoExposureModeManual           AutoExposureMode = 1
+	AutoExposureModeAuto                              = 2
+	AutoExposureModeShutterPriority                   = 4
+	AutoExposureModeAperturePriority                  = 8
+)
+
 type VideoProbeCommitControl struct {
 	HintBitmask            uint16
 	FormatIndex            uint8
@@ -112,6 +121,26 @@ func (vpcc *VideoProbeCommitControl) UnmarshalBinary(buf []byte) error {
 		vpcc.LayoutPerStream[2] = binary.LittleEndian.Uint16(buf[44:46])
 		vpcc.LayoutPerStream[3] = binary.LittleEndian.Uint16(buf[46:48])
 	}
+	return nil
+}
+
+// Control Request for Auto-Exposure Mode as defined in UVC spec 1.5, 4.2.2.1.2
+type AutoExposureModeControl struct {
+	Mode AutoExposureMode
+}
+
+func (fac *AutoExposureModeControl) MarshalSize() int {
+	return 1
+}
+
+func (fac *AutoExposureModeControl) MarshalBinary() ([]byte, error) {
+	buf := make([]byte, 1)
+	buf[0] = byte(fac.Mode)
+	return buf, nil
+}
+
+func (fac *AutoExposureModeControl) UnmarshalBinary(buf []byte) error {
+	fac.Mode = AutoExposureMode(buf[0])
 	return nil
 }
 

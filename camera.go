@@ -20,6 +20,65 @@ type CameraTerminal struct {
 	CameraDescriptor *descriptors.CameraTerminalDescriptor
 }
 
+func (ct *CameraTerminal) GetAutoExposureMode() (descriptors.AutoExposureMode, error) {
+	ifnum := ct.usb.altsetting.bInterfaceNumber
+
+	fac := &descriptors.AutoExposureModeControl{}
+	size := fac.MarshalSize()
+
+	buf := C.malloc(C.ulong(size))
+	defer C.free(buf)
+
+	if ret := C.libusb_control_transfer(
+		ct.deviceHandle,
+		C.uint8_t(requests.RequestTypeVideoInterfaceGetRequest),                                     /* bmRequestType */
+		C.uint8_t(requests.RequestCodeGetCur),                                                       /* bRequest*/
+		CameraTerminalControlSelectorAutoExposureModeControl<<8,                                     /* wValue: CT_AE_MODE_CONTROL on the hight byte */
+		C.uint16_t(uint16(ct.CameraDescriptor.InputTerminalDescriptor.TerminalID)<<8|uint16(ifnum)), /* wIndex*/
+		(*C.uchar)(buf),  /* data */
+		C.uint16_t(size), /* len */
+		0,                /* timeout */
+	); ret < 0 {
+		return -1, fmt.Errorf("libusb_control_transfer failed: %w", libusberror(ret))
+	}
+
+	if err := fac.UnmarshalBinary(C.GoBytes(unsafe.Pointer(buf), C.int(size))); err != nil {
+		return -1, err
+	}
+
+	return fac.Mode, nil
+}
+
+func (ct *CameraTerminal) SetAutoExposureMode(mode descriptors.AutoExposureMode) error {
+	ifnum := ct.usb.altsetting.bInterfaceNumber
+
+	fac := &descriptors.AutoExposureModeControl{Mode: mode}
+	size := fac.MarshalSize()
+
+	buf, err := fac.MarshalBinary()
+	if err != nil {
+		return err
+	}
+
+	cPtr := (*C.uchar)(C.CBytes(buf))
+	defer C.free(unsafe.Pointer(cPtr))
+
+	if ret := C.libusb_control_transfer(
+		ct.deviceHandle,
+		C.uint8_t(requests.RequestTypeVideoInterfaceSetRequest),                                     /* bmRequestType */
+		C.uint8_t(requests.RequestCodeSetCur),                                                       /* bRequest */
+		CameraTerminalControlSelectorAutoExposureModeControl<<8,                                     /* wValue: CT_AE_MODE_CONTROL on the hight byte */
+		C.uint16_t(uint16(ct.CameraDescriptor.InputTerminalDescriptor.TerminalID)<<8|uint16(ifnum)), /* wIndex */
+		(*C.uchar)(cPtr), /* data */
+		C.uint16_t(size), /* len */
+		0,                /* timeout */
+	); ret < 0 {
+		return fmt.Errorf("libusb_control_transfer failed: %w", libusberror(ret))
+	}
+
+	return nil
+}
+
 func (ct *CameraTerminal) GetAutoFocus() (bool, error) {
 	ifnum := ct.usb.altsetting.bInterfaceNumber
 
@@ -50,7 +109,6 @@ func (ct *CameraTerminal) GetAutoFocus() (bool, error) {
 	return fac.FocusAuto, nil
 }
 
-// Sends a Control Transfer
 func (ct *CameraTerminal) SetAutoFocus(on bool) error {
 	ifnum := ct.usb.altsetting.bInterfaceNumber
 
