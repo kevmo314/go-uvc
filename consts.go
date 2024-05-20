@@ -50,32 +50,6 @@ const (
 	SelectorUnitInputSelectControl                                   = 0x01
 )
 
-type CameraTerminalControlSelector int
-
-const (
-	CameraTerminalControlSelectorUndefined                   CameraTerminalControlSelector = 0x00
-	CameraTerminalControlSelectorScanningModeControl                                       = 0x01
-	CameraTerminalControlSelectorAutoExposureModeControl                                   = 0x02
-	CameraTerminalControlSelectorAutoExposurePriorityControl                               = 0x03
-	CameraTerminalControlSelectorExposureTimeAbsoluteControl                               = 0x04
-	CameraTerminalControlSelectorExposureTimeRelativeControl                               = 0x05
-	CameraTerminalControlSelectorFocusAbsoluteControl                                      = 0x06
-	CameraTerminalControlSelectorFocusRelativeControl                                      = 0x07
-	CameraTerminalControlSelectorFocusAutoControl                                          = 0x08
-	CameraTerminalControlSelectorIrisAbsoluteControl                                       = 0x09
-	CameraTerminalControlSelectorIrisRelativeControl                                       = 0x0A
-	CameraTerminalControlSelectorZoomAbsoluteControl                                       = 0x0B
-	CameraTerminalControlSelectorZoomRelativeControl                                       = 0x0C
-	CameraTerminalControlSelectorPanTiltAbsoluteControl                                    = 0x0D
-	CameraTerminalControlSelectorPanTiltRelativeControl                                    = 0x0E
-	CameraTerminalControlSelectorRollAbsoluteControl                                       = 0x0F
-	CameraTerminalControlSelectorRollRelativeControl                                       = 0x10
-	CameraTerminalControlSelectorPrivacyControl                                            = 0x11
-	CameraTerminalControlSelectorFocusSimpleControl                                        = 0x12
-	CameraTerminalControlSelectorWindowControl                                             = 0x13
-	CameraTerminalControlSelectorRegionOfInterestControl                                   = 0x14
-)
-
 type ProcessingUnitControlSelector int
 
 const (

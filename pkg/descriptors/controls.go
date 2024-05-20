@@ -1,18 +1,16 @@
 package descriptors
 
 import (
+	"encoding"
 	"encoding/binary"
 	"time"
 )
 
-type AutoExposureMode int
-
-const (
-	AutoExposureModeManual           AutoExposureMode = 1
-	AutoExposureModeAuto                              = 2
-	AutoExposureModeShutterPriority                   = 4
-	AutoExposureModeAperturePriority                  = 8
-)
+type CameraTerminalControlDescriptor interface {
+	Value() CameraTerminalControlSelector
+	encoding.BinaryMarshaler
+	encoding.BinaryUnmarshaler
+}
 
 type VideoProbeCommitControl struct {
 	HintBitmask            uint16
@@ -41,16 +39,6 @@ type VideoProbeCommitControl struct {
 	MaxNumberOfRefFramesPlus1 uint8
 	RateControlModes          uint16
 	LayoutPerStream           [4]uint16
-}
-
-func (vpcc *VideoProbeCommitControl) MarshalSize(bcdUVC uint16) int {
-	if bcdUVC < 0x0110 {
-		return 26
-	}
-	if bcdUVC < 0x0150 {
-		return 34
-	}
-	return 48
 }
 
 func (vpcc *VideoProbeCommitControl) MarshalInto(buf []byte) error {
@@ -138,8 +126,8 @@ type AutoExposureModeControl struct {
 	Mode AutoExposureMode
 }
 
-func (aemc *AutoExposureModeControl) MarshalSize() int {
-	return 1
+func (aemc *AutoExposureModeControl) Value() CameraTerminalControlSelector {
+	return CameraTerminalControlSelectorAutoExposurePriorityControl
 }
 
 func (aemc *AutoExposureModeControl) MarshalBinary() ([]byte, error) {
@@ -153,13 +141,73 @@ func (aemc *AutoExposureModeControl) UnmarshalBinary(buf []byte) error {
 	return nil
 }
 
+// Control Request for Auto-Exposure Priority as defined in UVC spec 1.5, 4.2.2.1.3
+type AutoExposurePriorityControl struct {
+	Priority AutoExposurePriority
+}
+
+func (aepc *AutoExposurePriorityControl) Value() CameraTerminalControlSelector {
+	return CameraTerminalControlSelectorAutoExposurePriorityControl
+}
+
+func (aepc *AutoExposurePriorityControl) MarshalBinary() ([]byte, error) {
+	buf := make([]byte, 1)
+	buf[0] = byte(aepc.Priority)
+	return buf, nil
+}
+
+func (aepc *AutoExposurePriorityControl) UnmarshalBinary(buf []byte) error {
+	aepc.Priority = AutoExposurePriority(buf[0])
+	return nil
+}
+
+// Control Request for Exposure Time (Absolute) as defined in UVC spec 1.5, 4.2.2.1.4
+type ExposureTimeAbsoluteControl struct {
+	Time uint32
+}
+
+func (etac *ExposureTimeAbsoluteControl) Value() CameraTerminalControlSelector {
+	return CameraTerminalControlSelectorExposureTimeAbsoluteControl
+}
+
+func (etac *ExposureTimeAbsoluteControl) MarshalBinary() ([]byte, error) {
+	buf := make([]byte, 4)
+	binary.LittleEndian.PutUint32(buf, etac.Time)
+	return buf, nil
+}
+
+func (etrc *ExposureTimeAbsoluteControl) UnmarshalBinary(buf []byte) error {
+	etrc.Time = binary.LittleEndian.Uint32(buf)
+	return nil
+}
+
+// Control Request for Exposure Time (Relative) as defined in UVC spec 1.5, 4.2.2.1.5
+type ExposureTimeRelativeControl struct {
+	Time ExposureTimeRelative
+}
+
+func (etrc *ExposureTimeRelativeControl) Value() CameraTerminalControlSelector {
+	return CameraTerminalControlSelectorExposureTimeRelativeControl
+}
+
+func (etrc *ExposureTimeRelativeControl) MarshalBinary() ([]byte, error) {
+	buf := make([]byte, 1)
+	buf[0] = byte(etrc.Time)
+	return buf, nil
+}
+
+func (etrc *ExposureTimeRelativeControl) UnmarshalBinary(buf []byte) error {
+	etrc.Time = ExposureTimeRelative(buf[0])
+	return nil
+}
+
 // Control Request for Focus, Auto Control as defined in UVC spec 1.5, 4.2.2.1.9
 type FocusAutoControl struct {
 	FocusAuto bool
 }
 
-func (fac *FocusAutoControl) MarshalSize() int {
-	return 1
+func (fac *FocusAutoControl) Value() CameraTerminalControlSelector {
+	return CameraTerminalControlSelectorFocusAutoControl
 }
 
 func (fac *FocusAutoControl) MarshalBinary() ([]byte, error) {

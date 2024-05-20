@@ -8,7 +8,7 @@ import (
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
 )
 
-func TestAutoExposure(t *testing.T) {
+func TestAutoExposureMode(t *testing.T) {
 	fd, err := syscall.Open("/dev/bus/usb/001/002", syscall.O_RDWR, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -30,18 +30,19 @@ func TestAutoExposure(t *testing.T) {
 	for _, iface := range info.ControlInterfaces {
 		log.Printf("got control interface: %#v", iface)
 		if iface.CameraTerminal != nil {
-			err := iface.CameraTerminal.SetAutoExposureMode(descriptors.AutoExposureModeAuto)
+			setControl := &descriptors.AutoExposureModeControl{Mode: descriptors.AutoExposureModeManual}
+			err := iface.CameraTerminal.Set(setControl)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			aeMode, err := iface.CameraTerminal.GetAutoExposureMode()
-			if err != nil {
+			control := &descriptors.AutoExposureModeControl{}
+			if err = iface.CameraTerminal.Read(control); err != nil {
 				t.Fatal(err)
 			}
 
-			if aeMode != descriptors.AutoExposureModeAuto {
-				t.Fatalf("TestAutoExposure: expected ae mode 1 (auto), got %d", aeMode)
+			if control.Mode != descriptors.AutoExposureModeManual {
+				t.Fatalf("TestAutoExposure: expected ae mode 1 (manual), got %d", control.Mode)
 			}
 		}
 	}
@@ -69,18 +70,19 @@ func TestAutoFocus(t *testing.T) {
 	for _, iface := range info.ControlInterfaces {
 		log.Printf("got control interface: %#v", iface)
 		if iface.CameraTerminal != nil {
-			err := iface.CameraTerminal.SetAutoFocus(true)
+			setControl := &descriptors.FocusAutoControl{FocusAuto: true}
+			err := iface.CameraTerminal.Set(setControl)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			status, err := iface.CameraTerminal.GetAutoFocus()
-			if err != nil {
+			control := &descriptors.FocusAutoControl{}
+			if err = iface.CameraTerminal.Read(control); err != nil {
 				t.Fatal(err)
 			}
 
-			if !status {
-				t.Fatalf("TestAutoFocus: expected true, got %t", status)
+			if !control.FocusAuto {
+				t.Fatalf("TestAutoFocus: expected true, got %t", control.FocusAuto)
 			}
 		}
 	}
