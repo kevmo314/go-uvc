@@ -20,7 +20,7 @@ type CameraTerminal struct {
 	CameraDescriptor *descriptors.CameraTerminalDescriptor
 }
 
-func (ct *CameraTerminal) Read(desc descriptors.ControlDescriptor) error {
+func (ct *CameraTerminal) Read(desc descriptors.CameraTerminalControlDescriptor) error {
 	ifnum := ct.usb.altsetting.bInterfaceNumber
 
 	bufLen := 16
@@ -47,7 +47,7 @@ func (ct *CameraTerminal) Read(desc descriptors.ControlDescriptor) error {
 	return nil
 }
 
-func (ct *CameraTerminal) Set(desc descriptors.ControlDescriptor) error {
+func (ct *CameraTerminal) Set(desc descriptors.CameraTerminalControlDescriptor) error {
 	ifnum := ct.usb.altsetting.bInterfaceNumber
 
 	buf, err := desc.MarshalBinary()

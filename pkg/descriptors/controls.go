@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-type ControlDescriptor interface {
-	Value() int
+type CameraTerminalControlDescriptor interface {
+	Value() CameraTerminalControlSelector
 	encoding.BinaryMarshaler
 	encoding.BinaryUnmarshaler
 }
@@ -39,10 +39,6 @@ type VideoProbeCommitControl struct {
 	MaxNumberOfRefFramesPlus1 uint8
 	RateControlModes          uint16
 	LayoutPerStream           [4]uint16
-}
-
-func (vpcc *VideoProbeCommitControl) Value() int {
-	return 1 //TODO add the constants?
 }
 
 func (vpcc *VideoProbeCommitControl) MarshalInto(buf []byte) error {
@@ -130,8 +126,8 @@ type AutoExposureModeControl struct {
 	Mode AutoExposureMode
 }
 
-func (aemc *AutoExposureModeControl) Value() int {
-	return int(CameraTerminalControlSelectorAutoExposurePriorityControl)
+func (aemc *AutoExposureModeControl) Value() CameraTerminalControlSelector {
+	return CameraTerminalControlSelectorAutoExposurePriorityControl
 }
 
 func (aemc *AutoExposureModeControl) MarshalBinary() ([]byte, error) {
@@ -150,8 +146,8 @@ type AutoExposurePriorityControl struct {
 	Priority AutoExposurePriority
 }
 
-func (aepc *AutoExposurePriorityControl) Value() int {
-	return int(CameraTerminalControlSelectorAutoExposurePriorityControl)
+func (aepc *AutoExposurePriorityControl) Value() CameraTerminalControlSelector {
+	return CameraTerminalControlSelectorAutoExposurePriorityControl
 }
 
 func (aepc *AutoExposurePriorityControl) MarshalBinary() ([]byte, error) {
@@ -170,8 +166,8 @@ type ExposureTimeAbsoluteControl struct {
 	Time uint32
 }
 
-func (etac *ExposureTimeAbsoluteControl) Value() int {
-	return int(CameraTerminalControlSelectorExposureTimeAbsoluteControl)
+func (etac *ExposureTimeAbsoluteControl) Value() CameraTerminalControlSelector {
+	return CameraTerminalControlSelectorExposureTimeAbsoluteControl
 }
 
 func (etac *ExposureTimeAbsoluteControl) MarshalBinary() ([]byte, error) {
@@ -190,8 +186,8 @@ type ExposureTimeRelativeControl struct {
 	Time ExposureTimeRelative
 }
 
-func (etrc *ExposureTimeRelativeControl) Value() int {
-	return int(CameraTerminalControlSelectorExposureTimeRelativeControl)
+func (etrc *ExposureTimeRelativeControl) Value() CameraTerminalControlSelector {
+	return CameraTerminalControlSelectorExposureTimeRelativeControl
 }
 
 func (etrc *ExposureTimeRelativeControl) MarshalBinary() ([]byte, error) {
@@ -210,8 +206,8 @@ type FocusAutoControl struct {
 	FocusAuto bool
 }
 
-func (fac *FocusAutoControl) Value() int {
-	return int(CameraTerminalControlSelectorFocusAutoControl)
+func (fac *FocusAutoControl) Value() CameraTerminalControlSelector {
+	return CameraTerminalControlSelectorFocusAutoControl
 }
 
 func (fac *FocusAutoControl) MarshalBinary() ([]byte, error) {
