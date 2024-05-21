@@ -228,11 +228,11 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 		si.deviceHandle,
 		C.uint8_t(requests.RequestTypeVideoInterfaceGetRequest), /* bmRequestType */
 		C.uint8_t(requests.RequestCodeGetMax),                   /* bRequest */
-		1<<8,                                                    /* wValue */
-		C.uint16_t(ifnum),                                       /* wIndex */
-		(*C.uchar)(buf),                                         /* data */
-		C.uint16_t(size),                                        /* len */
-		0,                                                       /* timeout */
+		VideoStreamingInterfaceControlSelectorProbeControl<<8,   /* wValue */
+		C.uint16_t(ifnum), /* wIndex */
+		(*C.uchar)(buf),   /* data */
+		C.uint16_t(size),  /* len */
+		0,                 /* timeout */
 	); ret < 0 {
 		return nil, fmt.Errorf("libusb_control_transfer failed: %w", libusberror(ret))
 	}
@@ -254,11 +254,11 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 		si.deviceHandle,
 		C.uint8_t(requests.RequestTypeVideoInterfaceSetRequest), /* bmRequestType */
 		C.uint8_t(requests.RequestCodeSetCur),                   /* bRequest */
-		1<<8,                                                    /* wValue */
-		C.uint16_t(ifnum),                                       /* wIndex */
-		(*C.uchar)(buf),                                         /* data */
-		C.uint16_t(size),                                        /* len */
-		0,                                                       /* timeout */
+		VideoStreamingInterfaceControlSelectorProbeControl<<8,   /* wValue */
+		C.uint16_t(ifnum), /* wIndex */
+		(*C.uchar)(buf),   /* data */
+		C.uint16_t(size),  /* len */
+		0,                 /* timeout */
 	); ret < 0 {
 		return nil, fmt.Errorf("libusb_control_transfer failed: %w", libusberror(ret))
 	}
@@ -268,11 +268,11 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 		si.deviceHandle,
 		C.uint8_t(requests.RequestTypeVideoInterfaceGetRequest), /* bmRequestType */
 		C.uint8_t(requests.RequestCodeGetCur),                   /* bRequest */
-		1<<8,                                                    /* wValue */
-		C.uint16_t(ifnum),                                       /* wIndex */
-		(*C.uchar)(buf),                                         /* data */
-		C.uint16_t(size),                                        /* len */
-		0,                                                       /* timeout */
+		VideoStreamingInterfaceControlSelectorProbeControl<<8,   /* wValue */
+		C.uint16_t(ifnum), /* wIndex */
+		(*C.uchar)(buf),   /* data */
+		C.uint16_t(size),  /* len */
+		0,                 /* timeout */
 	); ret < 0 {
 		return nil, fmt.Errorf("libusb_control_transfer failed: %w", libusberror(ret))
 	}
@@ -282,11 +282,11 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 		si.deviceHandle,
 		C.uint8_t(requests.RequestTypeVideoInterfaceSetRequest), /* bmRequestType */
 		C.uint8_t(requests.RequestCodeSetCur),                   /* bRequest */
-		2<<8,                                                    /* wValue */
-		C.uint16_t(ifnum),                                       /* wIndex */
-		(*C.uchar)(buf),                                         /* data */
-		C.uint16_t(size),                                        /* len */
-		0,                                                       /* timeout */
+		VideoStreamingInterfaceControlSelectorCommitControl<<8,  /* wValue */
+		C.uint16_t(ifnum), /* wIndex */
+		(*C.uchar)(buf),   /* data */
+		C.uint16_t(size),  /* len */
+		0,                 /* timeout */
 	); ret < 0 {
 		return nil, fmt.Errorf("libusb_control_transfer failed: %w", libusberror(ret))
 	}
