@@ -43,7 +43,7 @@ type IsochronousReader struct {
 
 func NewIsochronousReader(deviceHandle unsafe.Pointer, endpointAddress uint8, packets, packetSize uint32) (*IsochronousReader, error) {
 	r := &IsochronousReader{
-		readCh: make(chan []byte, 1000),
+		readCh: make(chan []byte, packets),
 		errCh:  make(chan error),
 	}
 	for i := 0; i < 100; i++ {
