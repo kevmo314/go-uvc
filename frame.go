@@ -70,7 +70,7 @@ func NewFrameReader(si *StreamingInterface, config *descriptors.VideoProbeCommit
 		if ret := C.libusb_set_interface_alt_setting(si.deviceHandle, C.int(altsetting.bInterfaceNumber), C.int(altsetting.bAlternateSetting)); ret < 0 {
 			return nil, fmt.Errorf("libusb_set_interface_alt_setting failed: %w", libusberror(ret))
 		}
-		packets := min((config.MaxVideoFrameSize+packetSize-1)/packetSize, 32)
+		packets := min((config.MaxVideoFrameSize+packetSize-1)/packetSize, 128)
 		ir, err := transfers.NewIsochronousReader(unsafe.Pointer(si.deviceHandle), endpointAddress, packets, packetSize)
 		if err != nil {
 			return nil, err
@@ -125,7 +125,7 @@ func getEndpointMaxPacketSize(ctx *C.struct_libusb_context, endpoint C.struct_li
 // isochronous pipe imposes on the USB.
 func findIsochronousAltSetting(ctx *C.struct_libusb_context, iface *C.struct_libusb_interface, endpointAddress C.uchar, payloadSize uint32) (*C.struct_libusb_interface_descriptor, uint32, error) {
 	altsettings := (*[1 << 30]C.struct_libusb_interface_descriptor)(unsafe.Pointer(iface.altsetting))[:iface.num_altsetting]
-	for _, altsetting := range altsettings {
+	for i, altsetting := range altsettings {
 		if altsetting.bNumEndpoints == 0 {
 			// UVC spec 1.5, section 2.4.3: All devices that transfer isochronous video data must
 			// incorporate a zero-bandwidth alternate setting for each VideoStreaming interface that has an
@@ -143,11 +143,11 @@ func findIsochronousAltSetting(ctx *C.struct_libusb_context, iface *C.struct_lib
 		}
 
 		packetSize := getEndpointMaxPacketSize(ctx, endpoints[j])
-		if packetSize >= payloadSize { // packets*packetSize >= payloadSize {
+		if packetSize >= payloadSize || i == len(altsettings)-1 {
 			return &altsetting, packetSize, nil
 		}
 	}
-	return nil, 0, fmt.Errorf("no alternate setting with a max packet size of at least %d", payloadSize)
+	panic("invalid state")
 }
 
 // ReadFrame reads individual payloads from the USB device and returns a constructed frame.
