@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"image"
 	"image/jpeg"
@@ -11,18 +12,36 @@ import (
 
 	"golang.org/x/image/draw"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/kevmo314/go-uvc"
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
 	"github.com/rivo/tview"
 )
 
-func main() {
-	if len(os.Args) < 2 {
-		panic("usage: ./inspect <usb device path>")
-	}
-	path := os.Args[1]
+type Display struct {
+	frame atomic.Value
+}
 
-	fd, err := os.OpenFile(path, os.O_RDWR, 0)
+func (g *Display) Update() error {
+	return nil
+}
+
+func (g *Display) Draw(screen *ebiten.Image) {
+	screen.DrawImage(g.frame.Load().(*ebiten.Image), &ebiten.DrawImageOptions{})
+}
+
+func (g *Display) Layout(outsideWidth, outsideHeight int) (int, int) {
+	frame := g.frame.Load().(*ebiten.Image)
+	return frame.Bounds().Dx(), frame.Bounds().Dy()
+}
+
+func main() {
+	path := flag.String("path", "", "path to the usb device")
+	render := flag.Bool("render", false, "render the frames to screen (higher performance but requires a display)")
+
+	flag.Parse()
+
+	fd, err := os.OpenFile(*path, os.O_RDWR, 0)
 	if err != nil {
 		panic(err)
 	}
@@ -76,34 +95,59 @@ func main() {
 							if fr, ok := fr.(descriptors.FrameDescriptor); ok {
 								frames.AddItem(frameDescriptorTitle(fr), frameDescriptorSubtitle(fr), 0, func() {
 									track := active.Add(1)
-									app.SetFocus(preview)
 									reader, err := si.ClaimFrameReader(fd.Index(), fr.Index())
 									if err != nil {
 										return
 									}
-									go func() {
-										defer reader.Close()
-										t0 := time.Now().Add(-1 * time.Second)
-										for i := 0; active.Load() == track; i++ {
-											fr, err := reader.ReadFrame()
-											if err != nil {
-												panic(err)
+									if *render {
+										g := &Display{}
+										go func() {
+											defer reader.Close()
+											for i := 0; active.Load() == track; i++ {
+												fr, err := reader.ReadFrame()
+												if err != nil {
+													log.Printf("error reading frame: %s", err)
+													return
+												}
+												img, err := jpeg.Decode(fr)
+												if err != nil {
+													continue
+												}
+												if g.frame.Swap(ebiten.NewImageFromImage(img)) == nil {
+													go func() {
+														if err := ebiten.RunGame(g); err != nil {
+															log.Printf("ebiten error: %s", err)
+														}
+													}()
+												}
 											}
-											t1 := time.Now()
-											if t1.Sub(t0) < 50*time.Millisecond {
-												continue
+										}()
+									} else {
+										app.SetFocus(preview)
+										go func() {
+											defer reader.Close()
+											t0 := time.Now().Add(-1 * time.Second)
+											for i := 0; active.Load() == track; i++ {
+												fr, err := reader.ReadFrame()
+												if err != nil {
+													panic(err)
+												}
+												t1 := time.Now()
+												if t1.Sub(t0) < 50*time.Millisecond {
+													continue
+												}
+												t0 = t1
+												img, err := jpeg.Decode(fr)
+												if err != nil {
+													continue
+												}
+												w := 64
+												h := img.Bounds().Dy() * w / img.Bounds().Dx()
+												preview.SetImage(resize(img, w, h))
+												app.ForceDraw()
 											}
-											t0 = t1
-											img, err := jpeg.Decode(fr)
-											if err != nil {
-												continue
-											}
-											w := 64
-											h := img.Bounds().Dy() * w / img.Bounds().Dx()
-											preview.SetImage(resize(img, w, h))
-											app.ForceDraw()
-										}
-									}()
+										}()
+									}
 								})
 							}
 						}
@@ -125,8 +169,11 @@ func main() {
 	flex := tview.NewFlex().
 		AddItem(ifaces, 0, 1, true).
 		AddItem(formats, 0, 1, false).
-		AddItem(frames, 0, 1, false).
-		AddItem(preview, 0, 3, false)
+		AddItem(frames, 0, 1, false)
+
+	if !*render {
+		flex.AddItem(preview, 0, 3, false)
+	}
 
 	if err := app.SetRoot(tview.NewFlex().SetDirection(tview.FlexRow).AddItem(flex, 0, 1, true).AddItem(logText, 10, 0, false), true).Run(); err != nil {
 		panic(err)
