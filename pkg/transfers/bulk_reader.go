@@ -25,7 +25,9 @@ type BulkReader struct {
 func bulkReaderTransferCallback(transfer *C.struct_libusb_transfer) {
 	r := pointer.Restore(transfer.user_data).(*BulkReader)
 	if transfer.status == C.LIBUSB_TRANSFER_COMPLETED {
-		r.readCh <- C.GoBytes(unsafe.Pointer(transfer.buffer), C.int(transfer.actual_length))
+		if transfer.actual_length > 0 {
+			r.readCh <- C.GoBytes(unsafe.Pointer(transfer.buffer), C.int(transfer.actual_length))
+		}
 		if ret := C.libusb_submit_transfer(transfer); ret < 0 {
 			r.errCh <- fmt.Errorf("libusb_submit_transfer failed: %s", C.GoString(C.libusb_error_name(ret)))
 		}
