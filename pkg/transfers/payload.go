@@ -2,6 +2,7 @@ package transfers
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
 )
 
@@ -70,4 +71,12 @@ func (f *Payload) UnmarshalBinary(buf []byte) error {
 	}
 	f.Data = buf[offset:]
 	return nil
+}
+
+func (f *Payload) String() string {
+	if len(f.Data) > 16 {
+		return fmt.Sprintf("Payload{Header: %08b, PTS: %d, SCR: %#v, Data (%d): %x...%x}", f.HeaderInfoBitmask, f.PTS, f.SCR, len(f.Data), f.Data[:16], f.Data[len(f.Data)-16:])
+	} else {
+		return fmt.Sprintf("Payload{Header: %08b, PTS: %d, SCR: %#v, Data (%d): %x}", f.HeaderInfoBitmask, f.PTS, f.SCR, len(f.Data), f.Data)
+	}
 }
