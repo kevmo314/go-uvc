@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"image"
-	"image/jpeg"
 	"log"
 	"os"
 	"sync/atomic"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/kevmo314/go-uvc"
+	"github.com/kevmo314/go-uvc/pkg/decode"
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
 	"github.com/rivo/tview"
 )
@@ -99,19 +99,18 @@ func main() {
 									if err != nil {
 										return
 									}
+									decoder, err := decode.NewFrameReaderDecoder(reader, fd, fr)
+									if err != nil {
+										return
+									}
 									if *render {
 										g := &Display{}
 										go func() {
 											defer reader.Close()
 											for i := 0; active.Load() == track; i++ {
-												fr, err := reader.ReadFrame()
+												img, err := decoder.ReadFrame()
 												if err != nil {
-													log.Printf("error reading frame: %s", err)
-													return
-												}
-												img, err := jpeg.Decode(fr)
-												if err != nil {
-													continue
+													break
 												}
 												if g.frame.Swap(ebiten.NewImageFromImage(img)) == nil {
 													go func() {
@@ -128,7 +127,7 @@ func main() {
 											defer reader.Close()
 											t0 := time.Now().Add(-1 * time.Second)
 											for i := 0; active.Load() == track; i++ {
-												fr, err := reader.ReadFrame()
+												img, err := decoder.ReadFrame()
 												if err != nil {
 													panic(err)
 												}
@@ -137,10 +136,6 @@ func main() {
 													continue
 												}
 												t0 = t1
-												img, err := jpeg.Decode(fr)
-												if err != nil {
-													continue
-												}
 												w := 64
 												h := img.Bounds().Dy() * w / img.Bounds().Dx()
 												preview.SetImage(resize(img, w, h))

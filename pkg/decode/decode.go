@@ -4,13 +4,22 @@ import (
 	"fmt"
 	"image"
 	"unsafe"
+
+	"github.com/kevmo314/go-uvc/pkg/descriptors"
+	"github.com/kevmo314/go-uvc/pkg/transfers"
 )
 
 /*
-#cgo LDFLAGS: -lavcodec
+#cgo LDFLAGS: -lavcodec -lavutil
 #include <libavcodec/avcodec.h>
+#include <libavutil/avutil.h>
+#include <libavutil/pixdesc.h>
 */
 import "C"
+
+const averror_eagain = -C.EAGAIN
+
+var ErrEAGAIN = fmt.Errorf("EAGAIN")
 
 type VideoDecoder struct {
 	ctx   *C.AVCodecContext
@@ -50,6 +59,31 @@ func newDecoder(codecID uint32) (*VideoDecoder, error) {
 	return &VideoDecoder{ctx: ctx, pkt: pkt, frame: frame}, nil
 }
 
+func NewDescriptorDecoder(fd descriptors.FormatDescriptor, fr descriptors.FrameDescriptor) (*VideoDecoder, error) {
+	switch fd := fd.(type) {
+	case *descriptors.MJPEGFormatDescriptor:
+		return NewMJPEGDecoder()
+	case *descriptors.H264FormatDescriptor:
+		return NewH264Decoder()
+	case *descriptors.VP8FormatDescriptor:
+		return NewVP8Decoder()
+	case *descriptors.FrameBasedFormatDescriptor:
+		fcc, err := fd.FourCC()
+		if err != nil {
+			return nil, err
+		}
+		switch fcc {
+		case [4]byte{'h', '2', '6', '4'}, [4]byte{'H', '2', '6', '4'}:
+			return NewH264Decoder()
+		case [4]byte{'v', 'p', '8', '0'}:
+			return NewVP8Decoder()
+		case [4]byte{'m', 'j', 'p', 'g'}:
+			return NewMJPEGDecoder()
+		}
+	}
+	return nil, fmt.Errorf("unsupported frame descriptor: %#v", fd)
+}
+
 func NewMJPEGDecoder() (*VideoDecoder, error) {
 	return newDecoder(C.AV_CODEC_ID_MJPEG)
 }
@@ -69,24 +103,37 @@ func (d *VideoDecoder) Close() error {
 	return nil
 }
 
-func (d *VideoDecoder) WriteNALU(nalu []byte) error {
-	nalu = append([]uint8{0x00, 0x00, 0x00, 0x01}, []uint8(nalu)...)
-
-	d.pkt.data = (*C.uint8_t)(C.CBytes(nalu))
-	d.pkt.size = C.int(len(nalu))
+func (d *VideoDecoder) Write(pkt []byte) (int, error) {
+	d.pkt.data = (*C.uint8_t)(C.CBytes(pkt))
+	d.pkt.size = C.int(len(pkt))
 
 	if res := C.avcodec_send_packet(d.ctx, d.pkt); res < 0 {
-		return fmt.Errorf("avcodec_send_packet() failed: %d", res)
+		return 0, fmt.Errorf("avcodec_send_packet() failed: %d", res)
+	}
+	return len(pkt), nil
+}
+
+func (d *VideoDecoder) WriteUSBFrame(fr *transfers.Frame) error {
+	for _, p := range fr.Payloads {
+		d.pkt.data = (*C.uint8_t)(C.CBytes(p.Data))
+		d.pkt.size = C.int(len(p.Data))
+
+		if res := C.avcodec_send_packet(d.ctx, d.pkt); res < 0 {
+			return fmt.Errorf("avcodec_send_packet() failed: %d", res)
+		}
 	}
 	return nil
 }
 
 func (d *VideoDecoder) ReadFrame() (image.Image, error) {
 	if res := C.avcodec_receive_frame(d.ctx, d.frame); res < 0 {
+		if res == averror_eagain {
+			return nil, ErrEAGAIN
+		}
 		return nil, fmt.Errorf("avcodec_receive_frame() failed: %d", res)
 	}
 	switch d.frame.format {
-	case C.AV_PIX_FMT_YUV420P, C.AV_PIX_FMT_YUV422P, C.AV_PIX_FMT_YUV444P, C.AV_PIX_FMT_YUV410P, C.AV_PIX_FMT_YUV411P:
+	case C.AV_PIX_FMT_YUV420P, C.AV_PIX_FMT_YUV422P, C.AV_PIX_FMT_YUV444P, C.AV_PIX_FMT_YUV410P, C.AV_PIX_FMT_YUV411P, C.AV_PIX_FMT_YUVJ420P, C.AV_PIX_FMT_YUVJ422P, C.AV_PIX_FMT_YUVJ444P:
 		img := &image.YCbCr{
 			Y:       (*[1 << 30]uint8)(unsafe.Pointer(d.frame.data[0]))[:d.frame.height*d.frame.linesize[0]],
 			Cb:      (*[1 << 30]uint8)(unsafe.Pointer(d.frame.data[1]))[:d.frame.height*d.frame.linesize[1]],
@@ -96,11 +143,11 @@ func (d *VideoDecoder) ReadFrame() (image.Image, error) {
 			CStride: int(d.frame.linesize[1]),
 		}
 		switch d.frame.format {
-		case C.AV_PIX_FMT_YUV420P:
+		case C.AV_PIX_FMT_YUV420P, C.AV_PIX_FMT_YUVJ420P:
 			img.SubsampleRatio = image.YCbCrSubsampleRatio420
-		case C.AV_PIX_FMT_YUV422P:
+		case C.AV_PIX_FMT_YUV422P, C.AV_PIX_FMT_YUVJ422P:
 			img.SubsampleRatio = image.YCbCrSubsampleRatio422
-		case C.AV_PIX_FMT_YUV444P:
+		case C.AV_PIX_FMT_YUV444P, C.AV_PIX_FMT_YUVJ444P:
 			img.SubsampleRatio = image.YCbCrSubsampleRatio444
 		case C.AV_PIX_FMT_YUV410P:
 			img.SubsampleRatio = image.YCbCrSubsampleRatio410
@@ -133,5 +180,37 @@ func (d *VideoDecoder) ReadFrame() (image.Image, error) {
 			Rect:   image.Rect(0, 0, int(d.frame.width), int(d.frame.height)),
 		}, nil
 	}
-	return nil, fmt.Errorf("unsupported pixel format: %d", d.frame.format)
+	return nil, fmt.Errorf("unsupported pixel format: %s", C.GoString(C.av_get_pix_fmt_name(int32(d.frame.format))))
+}
+
+type FrameReaderDecoder struct {
+	reader *transfers.FrameReader
+	dec    *VideoDecoder
+}
+
+func NewFrameReaderDecoder(reader *transfers.FrameReader, fd descriptors.FormatDescriptor, fr descriptors.FrameDescriptor) (*FrameReaderDecoder, error) {
+	dec, err := NewDescriptorDecoder(fd, fr)
+	if err != nil {
+		return nil, err
+	}
+	return &FrameReaderDecoder{reader: reader, dec: dec}, nil
+}
+
+func (d *FrameReaderDecoder) ReadFrame() (image.Image, error) {
+	for {
+		img, err := d.dec.ReadFrame()
+		if err == nil {
+			return img, nil
+		}
+		if err != ErrEAGAIN {
+			return nil, err
+		}
+		fr, err := d.reader.ReadFrame()
+		if err != nil {
+			return nil, err
+		}
+		if err := d.dec.WriteUSBFrame(fr); err != nil {
+			return nil, err
+		}
+	}
 }

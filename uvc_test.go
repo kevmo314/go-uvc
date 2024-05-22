@@ -4,14 +4,34 @@ import (
 	"image/jpeg"
 	"log"
 	"os"
+	"sync/atomic"
 	"syscall"
 	"testing"
 
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/kevmo314/go-uvc/pkg/decode"
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
 )
 
+type Display struct {
+	frame atomic.Value
+}
+
+func (g *Display) Update() error {
+	return nil
+}
+
+func (g *Display) Draw(screen *ebiten.Image) {
+	screen.DrawImage(g.frame.Load().(*ebiten.Image), &ebiten.DrawImageOptions{})
+}
+
+func (g *Display) Layout(outsideWidth, outsideHeight int) (int, int) {
+	frame := g.frame.Load().(*ebiten.Image)
+	return frame.Bounds().Dx(), frame.Bounds().Dy()
+}
+
 func TestDeviceInfo(t *testing.T) {
-	fd, err := syscall.Open("/dev/bus/usb/001/003", syscall.O_RDWR, 0)
+	fd, err := syscall.Open("/dev/bus/usb/001/006", syscall.O_RDWR, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,32 +55,41 @@ func TestDeviceInfo(t *testing.T) {
 
 	for _, iface := range info.StreamingInterfaces {
 		for i, desc := range iface.Descriptors {
-			fd, ok := desc.(*descriptors.MJPEGFormatDescriptor)
+			fd, ok := desc.(*descriptors.FrameBasedFormatDescriptor)
 			if !ok {
 				continue
 			}
-			frd := iface.Descriptors[i+1].(*descriptors.MJPEGFrameDescriptor)
+			fr := iface.Descriptors[i+1].(*descriptors.FrameBasedFrameDescriptor)
 
-			resp, err := iface.ClaimFrameReader(fd.Index(), frd.Index())
+			resp, err := iface.ClaimFrameReader(fd.Index(), fr.Index())
+			if err != nil {
+				t.Fatal(err)
+			}
+			decoder, err := decode.NewFrameReaderDecoder(resp, fd, fr)
 			if err != nil {
 				t.Fatal(err)
 			}
 
+			g := &Display{}
 			for i := 0; ; i++ {
-				fr, err := resp.ReadFrame()
+				img, err := decoder.ReadFrame()
 				if err != nil {
-					t.Fatal(err)
+					log.Printf("got error: %s", err)
+					continue
 				}
 				// write fr to a file
-				img, err := jpeg.Decode(fr)
-				if err != nil {
-					log.Printf("short on %d", i)
-				} else {
-					log.Printf("got frame: %#v", img.Bounds())
+				log.Printf("got frame: %#v", img.Bounds())
+				if g.frame.Swap(ebiten.NewImageFromImage(img)) == nil {
+					go func() {
+						if err := ebiten.RunGame(g); err != nil {
+							panic(err)
+						}
+					}()
 				}
 			}
 		}
 	}
+	log.Printf("done")
 	t.Fail()
 }
 

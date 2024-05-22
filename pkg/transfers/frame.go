@@ -1,4 +1,4 @@
-package uvc
+package transfers
 
 /*
 #cgo LDFLAGS: -lusb-1.0
@@ -12,18 +12,23 @@ import (
 	"unsafe"
 
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
-	"github.com/kevmo314/go-uvc/pkg/transfers"
 )
 
 type FrameReader struct {
-	si     *StreamingInterface
-	config *descriptors.VideoProbeCommitControl
-	pr     transfers.PayloadReader
-	fid    bool
+	deviceHandle *C.struct_libusb_device_handle
+	usb          *C.struct_libusb_interface
+	vpcc         *descriptors.VideoProbeCommitControl
+	pr           PayloadReader
+
+	// this can happen if the device does not correctly set the end of frame bit.
+	bufferedPayload *Payload
+
+	fid    *bool
+	buffer []byte
 }
 
 type Frame struct {
-	Payloads      []*transfers.Payload
+	Payloads      []*Payload
 	index, offset int
 }
 
@@ -53,42 +58,40 @@ func (f *Frame) Read(buf []byte) (int, error) {
 	return n, nil
 }
 
-func NewFrameReader(si *StreamingInterface, config *descriptors.VideoProbeCommitControl) (*FrameReader, error) {
-	inputs := si.InputHeaderDescriptors()
-	if len(inputs) == 0 {
-		return nil, fmt.Errorf("no input header descriptors found")
-	}
-
-	endpointAddress := inputs[0].EndpointAddress // take the first input header. TODO: should we select an input header?
-
-	useIsochronous := si.usb.num_altsetting > 1
+func NewFrameReader(usbctxp, deviceHandlep, usbp unsafe.Pointer, endpointAddress uint8, vpcc *descriptors.VideoProbeCommitControl) (*FrameReader, error) {
+	usbctx := (*C.struct_libusb_context)(usbctxp)
+	deviceHandle := (*C.struct_libusb_device_handle)(deviceHandlep)
+	usb := (*C.struct_libusb_interface)(usbp)
+	useIsochronous := usb.num_altsetting > 1
 	if useIsochronous {
-		altsetting, packetSize, err := findIsochronousAltSetting(si.usbctx, si.usb, C.uchar(endpointAddress), config.MaxPayloadTransferSize)
+		altsetting, packetSize, err := findIsochronousAltSetting(usbctx, usb, C.uchar(endpointAddress), vpcc.MaxPayloadTransferSize)
 		if err != nil {
 			return nil, err
 		}
-		if ret := C.libusb_set_interface_alt_setting(si.deviceHandle, C.int(altsetting.bInterfaceNumber), C.int(altsetting.bAlternateSetting)); ret < 0 {
-			return nil, fmt.Errorf("libusb_set_interface_alt_setting failed: %w", libusberror(ret))
+		if ret := C.libusb_set_interface_alt_setting(deviceHandle, C.int(altsetting.bInterfaceNumber), C.int(altsetting.bAlternateSetting)); ret < 0 {
+			return nil, fmt.Errorf("libusb_set_interface_alt_setting failed: %s", C.GoString(C.libusb_error_name(ret)))
 		}
-		packets := min((config.MaxVideoFrameSize+packetSize-1)/packetSize, 128)
-		ir, err := transfers.NewIsochronousReader(unsafe.Pointer(si.deviceHandle), endpointAddress, packets, packetSize)
+		packets := min((vpcc.MaxVideoFrameSize+packetSize-1)/packetSize, 128)
+		ir, err := NewIsochronousReader(unsafe.Pointer(deviceHandle), endpointAddress, packets, packetSize)
 		if err != nil {
 			return nil, err
 		}
 		return &FrameReader{
-			si:     si,
-			config: config,
-			pr:     ir,
+			deviceHandle: deviceHandle,
+			usb:          usb,
+			vpcc:         vpcc,
+			pr:           ir,
 		}, nil
 	} else {
-		br, err := transfers.NewBulkReader(unsafe.Pointer(si.deviceHandle), inputs[0].EndpointAddress, config.MaxPayloadTransferSize)
+		br, err := NewBulkReader(unsafe.Pointer(deviceHandle), endpointAddress, vpcc.MaxPayloadTransferSize)
 		if err != nil {
 			return nil, err
 		}
 		return &FrameReader{
-			si:     si,
-			config: config,
-			pr:     br,
+			deviceHandle: deviceHandle,
+			usb:          usb,
+			vpcc:         vpcc,
+			pr:           br,
 		}, nil
 	}
 }
@@ -154,17 +157,26 @@ func findIsochronousAltSetting(ctx *C.struct_libusb_context, iface *C.struct_lib
 func (r *FrameReader) ReadFrame() (*Frame, error) {
 	var f *Frame
 	for {
-		p, err := r.pr.ReadPayload()
-		if err != nil {
-			return nil, err
+		var p *Payload
+		if r.bufferedPayload != nil {
+			p = r.bufferedPayload
+			r.bufferedPayload = nil
+		} else {
+			q, err := r.pr.ReadPayload()
+			if err != nil {
+				return nil, err
+			}
+			p = q
 		}
-		if p.FrameID() != r.fid {
+		if r.fid == nil || p.FrameID() != *r.fid {
 			// frame id bit flipped, this is a new frame
 			if f != nil {
-				panic("frame id bit flipped but frame already read")
+				r.bufferedPayload = p
+				return f, nil
 			}
 			f = &Frame{}
-			r.fid = p.FrameID()
+			fid := p.FrameID()
+			r.fid = &fid
 		}
 		if f == nil {
 			continue
@@ -177,8 +189,8 @@ func (r *FrameReader) ReadFrame() (*Frame, error) {
 }
 
 func (r *FrameReader) Close() error {
-	if ret := C.libusb_release_interface(r.si.deviceHandle, C.int(r.si.usb.altsetting.bInterfaceNumber)); ret < 0 {
-		return fmt.Errorf("libusb_release_interface failed: %w", libusberror(ret))
+	if ret := C.libusb_release_interface(r.deviceHandle, C.int(r.usb.altsetting.bInterfaceNumber)); ret < 0 {
+		return fmt.Errorf("libusb_release_interface failed: %s", C.GoString(C.libusb_error_name(ret)))
 	}
 	return nil
 }

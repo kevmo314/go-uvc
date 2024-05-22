@@ -13,6 +13,7 @@ import (
 
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
 	"github.com/kevmo314/go-uvc/pkg/requests"
+	"github.com/kevmo314/go-uvc/pkg/transfers"
 )
 
 type UVCDevice struct {
@@ -207,7 +208,7 @@ func (d *DeviceInfo) Close() error {
 	return nil
 }
 
-func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*FrameReader, error) {
+func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*transfers.FrameReader, error) {
 	ifnum := si.usb.altsetting.bInterfaceNumber
 
 	// claim the control interface
@@ -296,5 +297,11 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 		return nil, err
 	}
 
-	return NewFrameReader(si, vpcc)
+	inputs := si.InputHeaderDescriptors()
+	if len(inputs) == 0 {
+		return nil, fmt.Errorf("no input header descriptors found")
+	}
+	endpointAddress := inputs[0].EndpointAddress // take the first input header. TODO: should we select an input header?
+
+	return transfers.NewFrameReader(unsafe.Pointer(si.usbctx), unsafe.Pointer(si.deviceHandle), unsafe.Pointer(si.usb), endpointAddress, vpcc)
 }
