@@ -12,8 +12,9 @@ The non-Go equivalent of this library is [libuvc](https://github.com/libuvc/libu
 - [x] UVC 1.5 support
 - [x] Isochronous and bulk transfer support
 - [x] Android support
-- [ ] Video decoding API
+- [x] Video decoding API
 - [ ] Camera controls
+- [ ] UAC Audio support
 
 ## Demo
 
