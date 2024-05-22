@@ -71,6 +71,7 @@ type FrameBasedFormatDescriptor struct {
 	AspectRatioY        uint8
 	InterlaceFlags      uint8
 	CopyProtect         uint8
+	VariableSize        bool
 }
 
 func (fbfd *FrameBasedFormatDescriptor) UnmarshalBinary(buf []byte) error {
@@ -92,6 +93,7 @@ func (fbfd *FrameBasedFormatDescriptor) UnmarshalBinary(buf []byte) error {
 	fbfd.AspectRatioY = buf[24]
 	fbfd.InterlaceFlags = buf[25]
 	fbfd.CopyProtect = buf[26]
+	fbfd.VariableSize = buf[27] != 0
 	return nil
 }
 
