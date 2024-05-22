@@ -49,3 +49,80 @@ const (
 	ExposureTimeRelativeIncrement ExposureTimeRelative = 0x01
 	ExposureTimeRelativeDecrement ExposureTimeRelative = 0xFF
 )
+
+type FocusRelative uint8
+
+const (
+	FocusRelativeStop              FocusRelative = 0x00
+	FocusRelativeNearDirection     FocusRelative = 0x01
+	FocusRelativeInfiniteDirection FocusRelative = 0xFF
+)
+
+type FocusSimple uint8
+
+const (
+	FocusSimpleFullRange FocusSimple = 0x00
+	FocusSimpleMacro     FocusSimple = 0x01 // Less than 0.3 meters
+	FocusSimplePeople    FocusSimple = 0x02 // 0.3 meters to 3 meters
+	FocusSimpleScene     FocusSimple = 0x03 // 3 meters to infinity
+)
+
+type IrisRelative uint8
+
+const (
+	IrisRelativeDefault   IrisRelative = 0x00
+	IrisRelativeOpenStep  IrisRelative = 0x01
+	IrisRelativeCloseStep IrisRelative = 0x02
+)
+
+type ZoomRelative uint8
+
+const (
+	ZoomRelativeStop      ZoomRelative = 0x00
+	ZoomRelativeTelephoto ZoomRelative = 0x01
+	ZoomRelativeWideAngle ZoomRelative = 0xFF
+)
+
+type PanRelative int
+
+const (
+	PanRelativeStop             PanRelative = 0x00
+	PanRelativeClockwise        PanRelative = 0x01
+	PanRelativeCounterClockwise PanRelative = 0xFF
+)
+
+type TiltRelative int
+
+const (
+	TiltRelativeStop TiltRelative = 0x00
+	TiltRelativeUp   TiltRelative = 0x01
+	TiltRelativeDown TiltRelative = 0xFF
+)
+
+type RollRelative int
+
+const (
+	RollRelativeStop             RollRelative = 0x00
+	RollRelativeClockwise        RollRelative = 0x01
+	RollRelativeCounterClockwise RollRelative = 0xFF
+)
+
+type StepUnits int
+
+const (
+	StepUnitsVideoFrames StepUnits = 0x00
+	StepUnitsMiliseconds StepUnits = 0x01
+)
+
+type RegionOfInterestAutoControl int
+
+const (
+	RegionOfInterestAutoControlExposure           RegionOfInterestAutoControl = 0x00
+	RegionOfInterestAutoControlIris               RegionOfInterestAutoControl = 0x01
+	RegionOfInterestAutoControlWhiteBalance       RegionOfInterestAutoControl = 0x02
+	RegionOfInterestAutoControlFocus              RegionOfInterestAutoControl = 0x03
+	RegionOfInterestAutoControlFaceDetect         RegionOfInterestAutoControl = 0x04
+	RegionOfInterestAutoControlDetectTrack        RegionOfInterestAutoControl = 0x05
+	RegionOfInterestAutoControlImageStabilization RegionOfInterestAutoControl = 0x06
+	RegionOfInterestAutoControlHigherQuality      RegionOfInterestAutoControl = 0x07
+)
