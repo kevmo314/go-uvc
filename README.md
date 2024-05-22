@@ -10,6 +10,8 @@ The non-Go equivalent of this library is [libuvc](https://github.com/libuvc/libu
 ## Features
 
 - [x] UVC 1.5 support
+  - [x] Input terminals (recording from cameras)
+  - [ ] Output terminals (displaying images on a device)
 - [x] Isochronous and bulk transfer support
 - [x] Android support
 - [x] Video decoding API
