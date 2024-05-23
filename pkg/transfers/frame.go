@@ -15,10 +15,11 @@ import (
 )
 
 type FrameReader struct {
-	deviceHandle *C.struct_libusb_device_handle
-	usb          *C.struct_libusb_interface
-	vpcc         *descriptors.VideoProbeCommitControl
-	pr           PayloadReader
+	ctx    *C.libusb_context
+	handle *C.struct_libusb_device_handle
+	iface  *C.struct_libusb_interface
+	vpcc   *descriptors.VideoProbeCommitControl
+	pr     PayloadReader
 
 	// this can happen if the device does not correctly set the end of frame bit.
 	bufferedPayload *Payload
@@ -69,26 +70,27 @@ func (si *StreamingInterface) NewFrameReader(endpointAddress uint8, vpcc *descri
 			return nil, fmt.Errorf("libusb_set_interface_alt_setting failed: %s", C.GoString(C.libusb_error_name(ret)))
 		}
 		packets := min((vpcc.MaxVideoFrameSize+packetSize-1)/packetSize, 128)
-		ir, err := NewIsochronousReader(unsafe.Pointer(si.handle), endpointAddress, packets, packetSize)
+		ir, err := si.NewIsochronousReader(endpointAddress, packets, packetSize)
 		if err != nil {
 			return nil, err
 		}
 		return &FrameReader{
-			deviceHandle: si.handle,
-			usb:          si.iface,
-			vpcc:         vpcc,
-			pr:           ir,
+			handle: si.handle,
+			iface:  si.iface,
+			vpcc:   vpcc,
+			pr:     ir,
 		}, nil
 	} else {
-		br, err := NewBulkReader(unsafe.Pointer(si.handle), endpointAddress, vpcc.MaxPayloadTransferSize)
+		br, err := si.NewBulkReader(endpointAddress, vpcc.MaxPayloadTransferSize)
 		if err != nil {
 			return nil, err
 		}
 		return &FrameReader{
-			deviceHandle: si.handle,
-			usb:          si.iface,
-			vpcc:         vpcc,
-			pr:           br,
+			ctx:    si.ctx,
+			handle: si.handle,
+			iface:  si.iface,
+			vpcc:   vpcc,
+			pr:     br,
 		}, nil
 	}
 }
@@ -186,7 +188,7 @@ func (r *FrameReader) ReadFrame() (*Frame, error) {
 }
 
 func (r *FrameReader) Close() error {
-	if ret := C.libusb_release_interface(r.deviceHandle, C.int(r.usb.altsetting.bInterfaceNumber)); ret < 0 {
+	if ret := C.libusb_release_interface(r.handle, C.int(r.iface.altsetting.bInterfaceNumber)); ret < 0 {
 		return fmt.Errorf("libusb_release_interface failed: %s", C.GoString(C.libusb_error_name(ret)))
 	}
 	return nil

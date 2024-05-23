@@ -36,13 +36,15 @@ func isochronousReaderTransferCallback(transfer *C.struct_libusb_transfer) {
 }
 
 type IsochronousReader struct {
+	ctx    *C.libusb_context
 	txReqs []*C.struct_libusb_transfer
 	readCh chan []byte
 	errCh  chan error
 }
 
-func NewIsochronousReader(deviceHandle unsafe.Pointer, endpointAddress uint8, packets, packetSize uint32) (*IsochronousReader, error) {
+func (si *StreamingInterface) NewIsochronousReader(endpointAddress uint8, packets, packetSize uint32) (*IsochronousReader, error) {
 	r := &IsochronousReader{
+		ctx:    si.ctx,
 		readCh: make(chan []byte, packets),
 		errCh:  make(chan error),
 	}
@@ -57,7 +59,7 @@ func NewIsochronousReader(deviceHandle unsafe.Pointer, endpointAddress uint8, pa
 		}
 		C.libusb_fill_iso_transfer(
 			tx,
-			(*C.struct_libusb_device_handle)(deviceHandle),
+			(*C.struct_libusb_device_handle)(si.handle),
 			C.uchar(endpointAddress),
 			(*C.uchar)(buf),
 			C.int(packets*packetSize),

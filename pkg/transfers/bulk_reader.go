@@ -16,6 +16,7 @@ import (
 )
 
 type BulkReader struct {
+	ctx    *C.libusb_context
 	txReqs []*C.struct_libusb_transfer
 	readCh chan []byte
 	errCh  chan error
@@ -36,9 +37,10 @@ func bulkReaderTransferCallback(transfer *C.struct_libusb_transfer) {
 	}
 }
 
-func NewBulkReader(deviceHandle unsafe.Pointer, endpointAddress uint8, mtu uint32) (*BulkReader, error) {
+func (si *StreamingInterface) NewBulkReader(endpointAddress uint8, mtu uint32) (*BulkReader, error) {
 	// the libusb sync api seems to result in some partial reads on some devices so we use the async api
 	r := &BulkReader{
+		ctx:    si.ctx,
 		txReqs: make([]*C.struct_libusb_transfer, 0, 100),
 		errCh:  make(chan error),
 	}
@@ -53,7 +55,7 @@ func NewBulkReader(deviceHandle unsafe.Pointer, endpointAddress uint8, mtu uint3
 		}
 		C.libusb_fill_bulk_transfer(
 			tx,
-			(*C.struct_libusb_device_handle)(deviceHandle),
+			(*C.struct_libusb_device_handle)(si.handle),
 			C.uchar(endpointAddress),
 			(*C.uchar)(buf),
 			C.int(mtu),
