@@ -106,18 +106,3 @@ type ExtensionUnitControlSelector int
 const (
 	ExtensionUnitControlSelectorUndefined ExtensionUnitControlSelector = 0x00
 )
-
-type VideoStreamingInterfaceControlSelector int
-
-const (
-	VideoStreamingInterfaceControlSelectorUndefined                 VideoStreamingInterfaceControlSelector = 0x00
-	VideoStreamingInterfaceControlSelectorProbeControl                                                     = 0x01
-	VideoStreamingInterfaceControlSelectorCommitControl                                                    = 0x02
-	VideoStreamingInterfaceControlSelectorStillProbeControl                                                = 0x03
-	VideoStreamingInterfaceControlSelectorStillCommitControl                                               = 0x04
-	VideoStreamingInterfaceControlSelectorStillImageTriggerControl                                         = 0x05
-	VideoStreamingInterfaceControlSelectorStreamErrorCodeControl                                           = 0x06
-	VideoStreamingInterfaceControlSelectorGenerateKeyFrameControl                                          = 0x07
-	VideoStreamingInterfaceControlSelectorUpdateFrameSegmentControl                                        = 0x08
-	VideoStreamingInterfaceControlSelectorSynchDelayControl                                                = 0x09
-)

@@ -9,7 +9,6 @@ import "C"
 import (
 	"fmt"
 	"io"
-	"log"
 	"unsafe"
 
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
@@ -59,38 +58,35 @@ func (f *Frame) Read(buf []byte) (int, error) {
 	return n, nil
 }
 
-func NewFrameReader(usbctxp, deviceHandlep, usbp unsafe.Pointer, endpointAddress uint8, vpcc *descriptors.VideoProbeCommitControl) (*FrameReader, error) {
-	usbctx := (*C.struct_libusb_context)(usbctxp)
-	deviceHandle := (*C.struct_libusb_device_handle)(deviceHandlep)
-	usb := (*C.struct_libusb_interface)(usbp)
-	useIsochronous := usb.num_altsetting > 1
+func (si *StreamingInterface) NewFrameReader(endpointAddress uint8, vpcc *descriptors.VideoProbeCommitControl) (*FrameReader, error) {
+	useIsochronous := si.iface.num_altsetting > 1
 	if useIsochronous {
-		altsetting, packetSize, err := findIsochronousAltSetting(usbctx, usb, C.uchar(endpointAddress), vpcc.MaxPayloadTransferSize)
+		altsetting, packetSize, err := findIsochronousAltSetting(si.ctx, si.iface, C.uchar(endpointAddress), vpcc.MaxPayloadTransferSize)
 		if err != nil {
 			return nil, err
 		}
-		if ret := C.libusb_set_interface_alt_setting(deviceHandle, C.int(altsetting.bInterfaceNumber), C.int(altsetting.bAlternateSetting)); ret < 0 {
+		if ret := C.libusb_set_interface_alt_setting(si.handle, C.int(altsetting.bInterfaceNumber), C.int(altsetting.bAlternateSetting)); ret < 0 {
 			return nil, fmt.Errorf("libusb_set_interface_alt_setting failed: %s", C.GoString(C.libusb_error_name(ret)))
 		}
 		packets := min((vpcc.MaxVideoFrameSize+packetSize-1)/packetSize, 128)
-		ir, err := NewIsochronousReader(unsafe.Pointer(deviceHandle), endpointAddress, packets, packetSize)
+		ir, err := NewIsochronousReader(unsafe.Pointer(si.handle), endpointAddress, packets, packetSize)
 		if err != nil {
 			return nil, err
 		}
 		return &FrameReader{
-			deviceHandle: deviceHandle,
-			usb:          usb,
+			deviceHandle: si.handle,
+			usb:          si.iface,
 			vpcc:         vpcc,
 			pr:           ir,
 		}, nil
 	} else {
-		br, err := NewBulkReader(unsafe.Pointer(deviceHandle), endpointAddress, vpcc.MaxPayloadTransferSize)
+		br, err := NewBulkReader(unsafe.Pointer(si.handle), endpointAddress, vpcc.MaxPayloadTransferSize)
 		if err != nil {
 			return nil, err
 		}
 		return &FrameReader{
-			deviceHandle: deviceHandle,
-			usb:          usb,
+			deviceHandle: si.handle,
+			usb:          si.iface,
 			vpcc:         vpcc,
 			pr:           br,
 		}, nil
@@ -169,7 +165,6 @@ func (r *FrameReader) ReadFrame() (*Frame, error) {
 			}
 			p = q
 		}
-		log.Printf("payload: %s", p.String())
 		if r.fid == nil || p.FrameID() != *r.fid {
 			// frame id bit flipped, this is a new frame
 			if f != nil {
