@@ -1,8 +1,10 @@
 package decode
 
 import (
+	"bytes"
 	"fmt"
 	"image"
+	"image/jpeg"
 	"unsafe"
 
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
@@ -21,13 +23,20 @@ const averror_eagain = -C.EAGAIN
 
 var ErrEAGAIN = fmt.Errorf("EAGAIN")
 
-type VideoDecoder struct {
+type VideoDecoder interface {
+	ReadFrame() (image.Image, error)
+	Write(pkt []byte) (int, error)
+	WriteUSBFrame(fr *transfers.Frame) error
+	Close() error
+}
+
+type LibAVCodecDecoder struct {
 	ctx   *C.AVCodecContext
 	pkt   *C.AVPacket
 	frame *C.AVFrame
 }
 
-func newDecoder(codecID uint32) (*VideoDecoder, error) {
+func newDecoder(codecID uint32) (*LibAVCodecDecoder, error) {
 	codec := C.avcodec_find_decoder(codecID)
 	if codec == nil {
 		return nil, fmt.Errorf("avcodec_find_decoder() failed")
@@ -56,10 +65,10 @@ func newDecoder(codecID uint32) (*VideoDecoder, error) {
 		return nil, fmt.Errorf("av_frame_alloc() failed")
 	}
 
-	return &VideoDecoder{ctx: ctx, pkt: pkt, frame: frame}, nil
+	return &LibAVCodecDecoder{ctx: ctx, pkt: pkt, frame: frame}, nil
 }
 
-func NewDescriptorDecoder(fd descriptors.FormatDescriptor, fr descriptors.FrameDescriptor) (*VideoDecoder, error) {
+func NewDescriptorDecoder(fd descriptors.FormatDescriptor, fr descriptors.FrameDescriptor) (VideoDecoder, error) {
 	switch fd := fd.(type) {
 	case *descriptors.MJPEGFormatDescriptor:
 		return NewMJPEGDecoder()
@@ -84,26 +93,22 @@ func NewDescriptorDecoder(fd descriptors.FormatDescriptor, fr descriptors.FrameD
 	return nil, fmt.Errorf("unsupported frame descriptor: %#v", fd)
 }
 
-func NewMJPEGDecoder() (*VideoDecoder, error) {
-	return newDecoder(C.AV_CODEC_ID_MJPEG)
-}
-
-func NewH264Decoder() (*VideoDecoder, error) {
+func NewH264Decoder() (*LibAVCodecDecoder, error) {
 	return newDecoder(C.AV_CODEC_ID_H264)
 }
 
-func NewVP8Decoder() (*VideoDecoder, error) {
+func NewVP8Decoder() (*LibAVCodecDecoder, error) {
 	return newDecoder(C.AV_CODEC_ID_VP8)
 }
 
-func (d *VideoDecoder) Close() error {
+func (d *LibAVCodecDecoder) Close() error {
 	C.av_frame_free(&d.frame)
 	C.av_packet_free(&d.pkt)
 	C.avcodec_free_context(&d.ctx)
 	return nil
 }
 
-func (d *VideoDecoder) Write(pkt []byte) (int, error) {
+func (d *LibAVCodecDecoder) Write(pkt []byte) (int, error) {
 	d.pkt.data = (*C.uint8_t)(C.CBytes(pkt))
 	d.pkt.size = C.int(len(pkt))
 
@@ -113,7 +118,7 @@ func (d *VideoDecoder) Write(pkt []byte) (int, error) {
 	return len(pkt), nil
 }
 
-func (d *VideoDecoder) WriteUSBFrame(fr *transfers.Frame) error {
+func (d *LibAVCodecDecoder) WriteUSBFrame(fr *transfers.Frame) error {
 	for _, p := range fr.Payloads {
 		d.pkt.data = (*C.uint8_t)(C.CBytes(p.Data))
 		d.pkt.size = C.int(len(p.Data))
@@ -125,7 +130,7 @@ func (d *VideoDecoder) WriteUSBFrame(fr *transfers.Frame) error {
 	return nil
 }
 
-func (d *VideoDecoder) ReadFrame() (image.Image, error) {
+func (d *LibAVCodecDecoder) ReadFrame() (image.Image, error) {
 	if res := C.avcodec_receive_frame(d.ctx, d.frame); res < 0 {
 		if res == averror_eagain {
 			return nil, ErrEAGAIN
@@ -183,9 +188,48 @@ func (d *VideoDecoder) ReadFrame() (image.Image, error) {
 	return nil, fmt.Errorf("unsupported pixel format: %s", C.GoString(C.av_get_pix_fmt_name(int32(d.frame.format))))
 }
 
+type MJPEGDecoder struct {
+	imagesBuf []image.Image
+}
+
+func NewMJPEGDecoder() (*MJPEGDecoder, error) {
+	return &MJPEGDecoder{}, nil
+}
+
+func (d *MJPEGDecoder) Write(pkt []byte) (int, error) {
+	img, err := jpeg.Decode(bytes.NewReader(pkt))
+	if err != nil {
+		return 0, err
+	}
+	d.imagesBuf = append(d.imagesBuf, img)
+	return len(pkt), nil
+}
+
+func (d *MJPEGDecoder) WriteUSBFrame(fr *transfers.Frame) error {
+	img, err := jpeg.Decode(fr)
+	if err != nil {
+		return err
+	}
+	d.imagesBuf = append(d.imagesBuf, img)
+	return nil
+}
+
+func (d *MJPEGDecoder) ReadFrame() (image.Image, error) {
+	if len(d.imagesBuf) == 0 {
+		return nil, ErrEAGAIN
+	}
+	img := d.imagesBuf[0]
+	d.imagesBuf = d.imagesBuf[1:]
+	return img, nil
+}
+
+func (d *MJPEGDecoder) Close() error {
+	return nil
+}
+
 type FrameReaderDecoder struct {
 	reader *transfers.FrameReader
-	dec    *VideoDecoder
+	dec    VideoDecoder
 }
 
 func NewFrameReaderDecoder(reader *transfers.FrameReader, fd descriptors.FormatDescriptor, fr descriptors.FrameDescriptor) (*FrameReaderDecoder, error) {

@@ -9,6 +9,7 @@ import "C"
 import (
 	"fmt"
 	"io"
+	"log"
 	"unsafe"
 
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
@@ -168,6 +169,7 @@ func (r *FrameReader) ReadFrame() (*Frame, error) {
 			}
 			p = q
 		}
+		log.Printf("payload: %s", p.String())
 		if r.fid == nil || p.FrameID() != *r.fid {
 			// frame id bit flipped, this is a new frame
 			if f != nil {

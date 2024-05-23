@@ -97,20 +97,23 @@ func main() {
 									track := active.Add(1)
 									reader, err := si.ClaimFrameReader(fd.Index(), fr.Index())
 									if err != nil {
+										log.Printf("error claiming frame reader: %s", err)
 										return
 									}
 									decoder, err := decode.NewFrameReaderDecoder(reader, fd, fr)
 									if err != nil {
+										log.Printf("error creating decoder: %s", err)
 										return
 									}
 									if *render {
 										g := &Display{}
 										go func() {
 											defer reader.Close()
-											for i := 0; active.Load() == track; i++ {
+											for active.Load() == track {
 												img, err := decoder.ReadFrame()
 												if err != nil {
-													break
+													log.Printf("error reading frame: %s", err)
+													continue
 												}
 												if g.frame.Swap(ebiten.NewImageFromImage(img)) == nil {
 													go func() {
@@ -126,10 +129,11 @@ func main() {
 										go func() {
 											defer reader.Close()
 											t0 := time.Now().Add(-1 * time.Second)
-											for i := 0; active.Load() == track; i++ {
+											for active.Load() == track {
 												img, err := decoder.ReadFrame()
 												if err != nil {
-													panic(err)
+													log.Printf("error reading frame: %s", err)
+													return
 												}
 												t1 := time.Now()
 												if t1.Sub(t0) < 50*time.Millisecond {
