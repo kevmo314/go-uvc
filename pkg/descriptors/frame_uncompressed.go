@@ -2,7 +2,9 @@ package descriptors
 
 import (
 	"encoding/binary"
+	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -91,6 +93,15 @@ func (ufd *UncompressedFormatDescriptor) UnmarshalBinary(buf []byte) error {
 	ufd.InterlaceFlagsBitmask = buf[25]
 	ufd.CopyProtect = buf[26]
 	return nil
+}
+
+func (ufd *UncompressedFormatDescriptor) FourCC() ([4]byte, error) {
+	if strings.HasSuffix(ufd.GUIDFormat.String(), "-0000-0010-8000-00aa00389b71") {
+		buf := [4]byte{}
+		binary.LittleEndian.PutUint32(buf[:], ufd.GUIDFormat.ID())
+		return buf, nil
+	}
+	return [4]byte{}, fmt.Errorf("unknown FourCC for GUID %s", ufd.GUIDFormat)
 }
 
 func (ufd *UncompressedFormatDescriptor) isStreamingInterface() {}
