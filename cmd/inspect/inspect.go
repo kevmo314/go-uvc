@@ -6,11 +6,13 @@ import (
 	"image"
 	"log"
 	"os"
+	"strconv"
 	"sync/atomic"
 	"time"
 
 	"golang.org/x/image/draw"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/kevmo314/go-uvc"
 	"github.com/kevmo314/go-uvc/pkg/decode"
@@ -67,10 +69,17 @@ func main() {
 	controlIfaces := tview.NewList().ShowSecondaryText(false)
 	controlIfaces.SetBorder(true).SetTitle("Control Interfaces")
 
+	controlRequests := tview.NewList().ShowSecondaryText(false)
+	controlRequests.SetBorder(true).SetTitle("Control Requests")
+
 	ifaces := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(streamingIfaces, 0, 1, true).AddItem(controlIfaces, 0, 1, false)
+
+	secondColumn := tview.NewFlex()
 
 	formats := tview.NewList()
 	formats.SetBorder(true).SetTitle("Formats")
+
+	secondColumn.SetDirection(tview.FlexRow).AddItem(formats, 0, 1, false).AddItem(controlRequests, 0, 1, false)
 
 	frames := tview.NewList()
 	frames.SetBorder(true).SetTitle("Frames")
@@ -125,7 +134,6 @@ func main() {
 											}
 										}()
 									} else {
-										app.SetFocus(preview)
 										go func() {
 											defer reader.Close()
 											t0 := time.Now().Add(-1 * time.Second)
@@ -147,6 +155,7 @@ func main() {
 											}
 										}()
 									}
+									app.SetFocus(controlIfaces)
 								})
 							}
 						}
@@ -160,6 +169,33 @@ func main() {
 
 	for _, ci := range info.ControlInterfaces {
 		controlIfaces.AddItem(controlInterfaceTitle(ci), "", 0, func() {
+			switch ci.Descriptor.(type) {
+			case *descriptors.CameraTerminalDescriptor:
+				app.SetFocus(controlRequests)
+				controlRequests.AddItem("Zoom Absolute", "", 0, func() {
+					controlRequestInput := tview.NewInputField()
+
+					controlRequestInput.SetLabel("Enter zoom value (>= 100): ").
+						SetFieldWidth(10).
+						SetAcceptanceFunc(tview.InputFieldInteger).
+						SetDoneFunc(func(key tcell.Key) {
+							capture, err := strconv.ParseUint(controlRequestInput.GetText(), 10, 16)
+							if err != nil {
+								log.Printf("failed parsing value %s", err)
+								return
+							}
+							setControl := &descriptors.ZoomAbsoluteControl{ObjectiveFocalLength: uint16(capture)}
+							err = ci.CameraTerminal.Set(setControl)
+							if err != nil {
+								log.Printf("control request failed %s", err)
+							}
+							secondColumn.RemoveItem(controlRequestInput)
+							app.SetFocus(controlRequests)
+						})
+					secondColumn.AddItem(controlRequestInput, 1, 1, false)
+					app.SetFocus(controlRequestInput)
+				})
+			}
 		})
 	}
 
@@ -167,7 +203,7 @@ func main() {
 
 	flex := tview.NewFlex().
 		AddItem(ifaces, 0, 1, true).
-		AddItem(formats, 0, 1, false).
+		AddItem(secondColumn, 0, 1, false).
 		AddItem(frames, 0, 1, false)
 
 	if !*render {
