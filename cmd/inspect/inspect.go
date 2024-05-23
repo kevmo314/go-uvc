@@ -192,7 +192,7 @@ func main() {
 							secondColumn.RemoveItem(controlRequestInput)
 							app.SetFocus(controlRequests)
 						})
-					secondColumn.AddItem(controlRequestInput, 0, 1, false)
+					secondColumn.AddItem(controlRequestInput, 1, 1, false)
 					app.SetFocus(controlRequestInput)
 				})
 			}
