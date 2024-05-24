@@ -6,11 +6,6 @@ import (
 	"io"
 )
 
-type PayloadReader interface {
-	io.Closer
-	ReadPayload() (*Payload, error)
-}
-
 type Payload struct {
 	HeaderInfoBitmask uint8
 	PTS               uint32

@@ -38,15 +38,6 @@ func NewUVCDevice(fd uintptr) (*UVCDevice, error) {
 	return dev, nil
 }
 
-func (d *UVCDevice) EventLoop() error {
-	for !d.closed.Load() {
-		if ret := C.libusb_handle_events(d.usbctx); ret < 0 {
-			return fmt.Errorf("libusb_handle_events failed: %d", libusberror(ret))
-		}
-	}
-	return nil
-}
-
 func (d *UVCDevice) IsTISCamera() (bool, error) {
 	var desc C.struct_libusb_device_descriptor
 	if ret := C.libusb_get_device_descriptor(d.device, &desc); ret < 0 {

@@ -10,6 +10,7 @@ void isochronousReaderTransferCallback(struct libusb_transfer *transfer);
 import "C"
 import (
 	"fmt"
+	"io"
 	"unsafe"
 
 	"github.com/mattn/go-pointer"
@@ -18,35 +19,30 @@ import (
 //export isochronousReaderTransferCallback
 func isochronousReaderTransferCallback(transfer *C.struct_libusb_transfer) {
 	r := pointer.Restore(transfer.user_data).(*IsochronousReader)
-	descs := (*[1 << 30]C.struct_libusb_iso_packet_descriptor)(unsafe.Pointer(&transfer.iso_packet_desc))[:transfer.num_iso_packets]
-	for i, pkt := range descs {
-		if pkt.status != C.LIBUSB_TRANSFER_COMPLETED {
-			r.errCh <- fmt.Errorf("libusb_bulk_transfer failed: %d", pkt.status)
-			return
-		}
-		if pkt.actual_length == 0 {
-			continue
-		}
-		pktbuf := C.libusb_get_iso_packet_buffer_simple(transfer, C.uint(i))
-		r.readCh <- C.GoBytes(unsafe.Pointer(pktbuf), C.int(pkt.actual_length))
-	}
-	if ret := C.libusb_submit_transfer(transfer); ret < 0 {
-		r.errCh <- fmt.Errorf("libusb_submit_transfer failed: %s", C.GoString(C.libusb_error_name(ret)))
+
+	r.completedTxReqs[r.head] = transfer
+	r.head = (r.head + 1) % len(r.completedTxReqs)
+	if r.size < len(r.completedTxReqs) {
+		r.size++
+	} else {
+		panic("illegal state")
 	}
 }
 
 type IsochronousReader struct {
-	ctx    *C.libusb_context
+	ctx *C.libusb_context
+	// reference to all the transfers
 	txReqs []*C.struct_libusb_transfer
-	readCh chan []byte
-	errCh  chan error
+
+	// circular buffer of completed transfers
+	completedTxReqs []*C.struct_libusb_transfer
+	head, size      int
+	index           int
 }
 
 func (si *StreamingInterface) NewIsochronousReader(endpointAddress uint8, packets, packetSize uint32) (*IsochronousReader, error) {
 	r := &IsochronousReader{
-		ctx:    si.ctx,
-		readCh: make(chan []byte, packets),
-		errCh:  make(chan error),
+		ctx: si.ctx,
 	}
 	for i := 0; i < 100; i++ {
 		tx := C.libusb_alloc_transfer(C.int(packets))
@@ -76,16 +72,44 @@ func (si *StreamingInterface) NewIsochronousReader(endpointAddress uint8, packet
 		}
 		r.txReqs = append(r.txReqs, tx)
 	}
+	r.completedTxReqs = make([]*C.struct_libusb_transfer, len(r.txReqs))
 	return r, nil
 }
 
-func (r *IsochronousReader) ReadPayload() (*Payload, error) {
-	select {
-	case <-r.errCh:
-		return nil, <-r.errCh
-	case b := <-r.readCh:
-		p := &Payload{}
-		return p, p.UnmarshalBinary(b)
+func (r *IsochronousReader) Read(buf []byte) (int, error) {
+	for {
+		for r.size == 0 {
+			// pump events.
+			if ret := C.libusb_handle_events(r.ctx); ret < 0 {
+				return 0, fmt.Errorf("libusb_handle_events failed: %d", ret)
+			}
+		}
+
+		activeTx := r.completedTxReqs[(r.head-r.size+len(r.completedTxReqs))%len(r.completedTxReqs)]
+		descs := (*[1 << 30]C.struct_libusb_iso_packet_descriptor)(unsafe.Pointer(&activeTx.iso_packet_desc))[:activeTx.num_iso_packets]
+		if r.index == len(descs) {
+			// this tx is done, get the next one.
+			r.size--
+			r.index = 0
+			if ret := C.libusb_submit_transfer(activeTx); ret < 0 {
+				return 0, fmt.Errorf("libusb_submit_transfer failed: %s", C.GoString(C.libusb_error_name(ret)))
+			}
+			continue
+		}
+		pkt := descs[r.index]
+		if pkt.status != C.LIBUSB_TRANSFER_COMPLETED {
+			return 0, fmt.Errorf("libusb_iso_transfer failed: %d", pkt.status)
+		}
+		if pkt.actual_length == 0 {
+			r.index++
+			continue
+		}
+		if len(buf) < int(pkt.actual_length) {
+			return 0, io.ErrShortBuffer
+		}
+		pktbuf := C.libusb_get_iso_packet_buffer_simple(activeTx, C.uint(r.index))
+		r.index++
+		return copy(buf, (*[1 << 30]byte)(unsafe.Pointer(pktbuf))[:int(pkt.actual_length)]), nil
 	}
 }
 

@@ -19,13 +19,11 @@ type FrameReader struct {
 	handle *C.struct_libusb_device_handle
 	iface  *C.struct_libusb_interface
 	vpcc   *descriptors.VideoProbeCommitControl
-	pr     PayloadReader
+	pr     io.Reader
 
-	// this can happen if the device does not correctly set the end of frame bit.
-	bufferedPayload *Payload
-
-	fid    *bool
-	buffer []byte
+	fid         *bool
+	buffer      []byte
+	size, patch int
 }
 
 type Frame struct {
@@ -79,6 +77,7 @@ func (si *StreamingInterface) NewFrameReader(endpointAddress uint8, vpcc *descri
 			iface:  si.iface,
 			vpcc:   vpcc,
 			pr:     ir,
+			buffer: make([]byte, vpcc.MaxVideoFrameSize),
 		}, nil
 	} else {
 		br, err := si.NewBulkReader(endpointAddress, vpcc.MaxPayloadTransferSize)
@@ -91,6 +90,7 @@ func (si *StreamingInterface) NewFrameReader(endpointAddress uint8, vpcc *descri
 			iface:  si.iface,
 			vpcc:   vpcc,
 			pr:     br,
+			buffer: make([]byte, vpcc.MaxVideoFrameSize),
 		}, nil
 	}
 }
@@ -156,21 +156,34 @@ func findIsochronousAltSetting(ctx *C.struct_libusb_context, iface *C.struct_lib
 func (r *FrameReader) ReadFrame() (*Frame, error) {
 	var f *Frame
 	for {
-		var p *Payload
-		if r.bufferedPayload != nil {
-			p = r.bufferedPayload
-			r.bufferedPayload = nil
-		} else {
-			q, err := r.pr.ReadPayload()
+		p := &Payload{}
+		n := 0
+		if r.patch == 0 {
+			m, err := r.pr.Read(r.buffer[r.size:])
 			if err != nil {
 				return nil, err
 			}
-			p = q
+			n = m
+			if err := p.UnmarshalBinary(r.buffer[r.size : r.size+n]); err != nil {
+				return nil, err
+			}
+		} else {
+			if copy(r.buffer, r.buffer[r.size:r.size+r.patch]) != r.patch {
+				return nil, fmt.Errorf("copy failed")
+			}
+			r.size = r.patch
+			n = r.patch
+			r.patch = 0
+			if err := p.UnmarshalBinary(r.buffer[:r.size]); err != nil {
+				return nil, err
+			}
 		}
 		if r.fid == nil || p.FrameID() != *r.fid {
 			// frame id bit flipped, this is a new frame
 			if f != nil {
-				r.bufferedPayload = p
+				// set the patch to the size of the payload to indicate that
+				// the next payload should read from the existing buffer.
+				r.patch = n
 				return f, nil
 			}
 			f = &Frame{}
@@ -178,10 +191,15 @@ func (r *FrameReader) ReadFrame() (*Frame, error) {
 			r.fid = &fid
 		}
 		if f == nil {
+			// if there's no frame, ignore this payload.
+			// this can happen if the device sends frames after an end of frame bit.
 			continue
 		}
+		r.size += n
 		f.Payloads = append(f.Payloads, p)
 		if p.EndOfFrame() {
+			// reset the buffer
+			r.size = 0
 			return f, nil
 		}
 	}

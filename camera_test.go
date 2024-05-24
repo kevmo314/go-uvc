@@ -19,8 +19,6 @@ func TestAutoExposureMode(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	go ctx.EventLoop()
-
 	info, err := ctx.DeviceInfo()
 	if err != nil {
 		t.Fatal(err)
@@ -58,8 +56,6 @@ func TestAutoFocus(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	go ctx.EventLoop()
 
 	info, err := ctx.DeviceInfo()
 	if err != nil {

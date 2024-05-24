@@ -18,22 +18,22 @@ import (
 type BulkReader struct {
 	ctx    *C.libusb_context
 	txReqs []*C.struct_libusb_transfer
-	readCh chan []byte
-	errCh  chan error
+
+	// circular buffer of completed transfers
+	completedTxReqs []*C.struct_libusb_transfer
+	head, size      int
 }
 
 //export bulkReaderTransferCallback
 func bulkReaderTransferCallback(transfer *C.struct_libusb_transfer) {
 	r := pointer.Restore(transfer.user_data).(*BulkReader)
-	if transfer.status == C.LIBUSB_TRANSFER_COMPLETED {
-		if transfer.actual_length > 0 {
-			r.readCh <- C.GoBytes(unsafe.Pointer(transfer.buffer), C.int(transfer.actual_length))
-		}
-		if ret := C.libusb_submit_transfer(transfer); ret < 0 {
-			r.errCh <- fmt.Errorf("libusb_submit_transfer failed: %s", C.GoString(C.libusb_error_name(ret)))
-		}
+
+	r.completedTxReqs[r.head] = transfer
+	r.head = (r.head + 1) % len(r.completedTxReqs)
+	if r.size < len(r.completedTxReqs) {
+		r.size++
 	} else {
-		r.errCh <- fmt.Errorf("libusb_bulk_transfer failed: %d", transfer.status)
+		panic("illegal state")
 	}
 }
 
@@ -42,7 +42,6 @@ func (si *StreamingInterface) NewBulkReader(endpointAddress uint8, mtu uint32) (
 	r := &BulkReader{
 		ctx:    si.ctx,
 		txReqs: make([]*C.struct_libusb_transfer, 0, 100),
-		errCh:  make(chan error),
 	}
 	for i := 0; i < 100; i++ {
 		tx := C.libusb_alloc_transfer(0)
@@ -70,18 +69,23 @@ func (si *StreamingInterface) NewBulkReader(endpointAddress uint8, mtu uint32) (
 		}
 		r.txReqs = append(r.txReqs, tx)
 	}
-	r.readCh = make(chan []byte, len(r.txReqs))
+	r.completedTxReqs = make([]*C.struct_libusb_transfer, len(r.txReqs))
 	return r, nil
 }
 
-func (r *BulkReader) ReadPayload() (*Payload, error) {
-	select {
-	case <-r.errCh:
-		return nil, <-r.errCh
-	case b := <-r.readCh:
-		p := &Payload{}
-		return p, p.UnmarshalBinary(b)
+func (r *BulkReader) Read(buf []byte) (int, error) {
+	for r.size == 0 {
+		// pump events.
+		C.libusb_handle_events(r.ctx)
 	}
+
+	activeTx := r.completedTxReqs[(r.head-r.size+len(r.completedTxReqs))%len(r.completedTxReqs)]
+	r.size--
+	n := copy(buf, (*[1 << 30]byte)(unsafe.Pointer(activeTx.buffer))[:activeTx.actual_length])
+	if ret := C.libusb_submit_transfer(activeTx); ret < 0 {
+		return 0, fmt.Errorf("libusb_submit_transfer failed: %s", C.GoString(C.libusb_error_name(ret)))
+	}
+	return n, nil
 }
 
 func (r *BulkReader) Close() error {
