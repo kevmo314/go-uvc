@@ -20,6 +20,12 @@ type CameraTerminal struct {
 	CameraDescriptor *descriptors.CameraTerminalDescriptor
 }
 
+func (ct *CameraTerminal) IsControlRequestSupported(desc descriptors.CameraTerminalControlDescriptor) bool {
+	byteIndex := desc.FeatureBit() / 8
+	bitIndex := desc.FeatureBit() % 8
+	return (ct.CameraDescriptor.ControlsBitmask[byteIndex] & (1 << bitIndex)) != 0
+}
+
 func (ct *CameraTerminal) Read(desc descriptors.CameraTerminalControlDescriptor) error {
 	ifnum := ct.usb.altsetting.bInterfaceNumber
 

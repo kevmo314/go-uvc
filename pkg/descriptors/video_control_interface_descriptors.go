@@ -209,7 +209,7 @@ type CameraTerminalDescriptor struct {
 	ObjectiveFocalLengthMin uint16
 	ObjectiveFocalLengthMax uint16
 	OcularFocalLength       uint16
-	ControlsBitmask         uint32
+	ControlsBitmask         []byte // Size 3 bitmap that indicates which controls are supported
 }
 
 func (ctd *CameraTerminalDescriptor) UnmarshalBinary(buf []byte) error {
@@ -236,7 +236,7 @@ func (ctd *CameraTerminalDescriptor) UnmarshalBinary(buf []byte) error {
 	ctd.ObjectiveFocalLengthMin = binary.LittleEndian.Uint16(buf[8:10])
 	ctd.ObjectiveFocalLengthMax = binary.LittleEndian.Uint16(buf[10:12])
 	ctd.OcularFocalLength = binary.LittleEndian.Uint16(buf[12:14])
-	ctd.ControlsBitmask = binary.LittleEndian.Uint32(buf[14:18])
+	ctd.ControlsBitmask = buf[15:18]
 	return nil
 }
 

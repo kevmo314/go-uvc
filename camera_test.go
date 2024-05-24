@@ -66,6 +66,12 @@ func TestAutoFocus(t *testing.T) {
 	for _, iface := range info.ControlInterfaces {
 		log.Printf("got control interface: %#v", iface)
 		if iface.CameraTerminal != nil {
+
+			supported := iface.CameraTerminal.IsControlRequestSupported(&descriptors.FocusAutoControl{})
+			if !supported {
+				t.Fatal("feature not supported")
+			}
+
 			setControl := &descriptors.FocusAutoControl{FocusAuto: true}
 			err := iface.CameraTerminal.Set(setControl)
 			if err != nil {
