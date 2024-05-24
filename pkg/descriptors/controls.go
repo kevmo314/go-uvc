@@ -8,6 +8,7 @@ import (
 
 type CameraTerminalControlDescriptor interface {
 	Value() CameraTerminalControlSelector
+	FeatureBit() int //Indicates the position of the control on the controls bitmap
 	encoding.BinaryMarshaler
 	encoding.BinaryUnmarshaler
 }
@@ -126,6 +127,10 @@ type AutoExposureModeControl struct {
 	Mode AutoExposureMode
 }
 
+func (aemc *AutoExposureModeControl) FeatureBit() int {
+	return 1
+}
+
 func (aemc *AutoExposureModeControl) Value() CameraTerminalControlSelector {
 	return CameraTerminalControlSelectorAutoExposurePriorityControl
 }
@@ -144,6 +149,10 @@ func (aemc *AutoExposureModeControl) UnmarshalBinary(buf []byte) error {
 // Control Request for Auto-Exposure Priority as defined in UVC spec 1.5, 4.2.2.1.3
 type AutoExposurePriorityControl struct {
 	Priority AutoExposurePriority
+}
+
+func (aepc *AutoExposurePriorityControl) FeatureBit() int {
+	return 2
 }
 
 func (aepc *AutoExposurePriorityControl) Value() CameraTerminalControlSelector {
@@ -166,6 +175,10 @@ type ExposureTimeAbsoluteControl struct {
 	Time uint32
 }
 
+func (etac *ExposureTimeAbsoluteControl) FeatureBit() int {
+	return 3
+}
+
 func (etac *ExposureTimeAbsoluteControl) Value() CameraTerminalControlSelector {
 	return CameraTerminalControlSelectorExposureTimeAbsoluteControl
 }
@@ -184,6 +197,10 @@ func (etrc *ExposureTimeAbsoluteControl) UnmarshalBinary(buf []byte) error {
 // Control Request for Exposure Time (Relative) as defined in UVC spec 1.5, 4.2.2.1.5
 type ExposureTimeRelativeControl struct {
 	Time ExposureTimeRelative
+}
+
+func (etrc *ExposureTimeRelativeControl) FeatureBit() int {
+	return 4
 }
 
 func (etrc *ExposureTimeRelativeControl) Value() CameraTerminalControlSelector {
@@ -206,6 +223,10 @@ type FocusAbsoluteControl struct {
 	Focus uint16
 }
 
+func (fac *FocusAbsoluteControl) FeatureBit() int {
+	return 5
+}
+
 func (fac *FocusAbsoluteControl) Value() CameraTerminalControlSelector {
 	return CameraTerminalControlSelectorFocusAbsoluteControl
 }
@@ -225,6 +246,10 @@ func (fac *FocusAbsoluteControl) UnmarshalBinary(buf []byte) error {
 type FocusRelativeControl struct {
 	Focus FocusRelative
 	Speed uint8
+}
+
+func (frc *FocusRelativeControl) FeatureBit() int {
+	return 6
 }
 
 func (frc *FocusRelativeControl) Value() CameraTerminalControlSelector {
@@ -249,6 +274,10 @@ type FocusSimpleRangeControl struct {
 	Focus FocusSimple
 }
 
+func (fsrc *FocusSimpleRangeControl) FeatureBit() int {
+	return 19
+}
+
 func (fsrc *FocusSimpleRangeControl) Value() CameraTerminalControlSelector {
 	return CameraTerminalControlSelectorFocusSimpleControl
 }
@@ -267,6 +296,10 @@ func (fsrc *FocusSimpleRangeControl) UnmarshalBinary(buf []byte) error {
 // Control Request for Focus, Auto Control as defined in UVC spec 1.5, 4.2.2.1.9
 type FocusAutoControl struct {
 	FocusAuto bool
+}
+
+func (fac *FocusAutoControl) FeatureBit() int {
+	return 17
 }
 
 func (fac *FocusAutoControl) Value() CameraTerminalControlSelector {
@@ -293,6 +326,10 @@ type IrisAbsoluteControl struct {
 	Aperture uint16
 }
 
+func (iac *IrisAbsoluteControl) FeatureBit() int {
+	return 7
+}
+
 func (iac *IrisAbsoluteControl) Value() CameraTerminalControlSelector {
 	return CameraTerminalControlSelectorIrisAbsoluteControl
 }
@@ -311,6 +348,10 @@ func (iac *IrisAbsoluteControl) UnmarshalBinary(buf []byte) error {
 // Control Request for Iris Relative as defined in UVC spec 1.5, 4.2.2.1.11
 type IrisRelativeControl struct {
 	Aperture IrisRelative
+}
+
+func (irc *IrisRelativeControl) FeatureBit() int {
+	return 8
 }
 
 func (irc *IrisRelativeControl) Value() CameraTerminalControlSelector {
@@ -333,6 +374,10 @@ type ZoomAbsoluteControl struct {
 	ObjectiveFocalLength uint16
 }
 
+func (zac *ZoomAbsoluteControl) FeatureBit() int {
+	return 9
+}
+
 func (zac *ZoomAbsoluteControl) Value() CameraTerminalControlSelector {
 	return CameraTerminalControlSelectorZoomAbsoluteControl
 }
@@ -353,6 +398,10 @@ type ZoomRelativeControl struct {
 	Zoom        ZoomRelative
 	DigitalZoom bool
 	Speed       uint8
+}
+
+func (zrc *ZoomRelativeControl) FeatureBit() int {
+	return 10
 }
 
 func (zrc *ZoomRelativeControl) Value() CameraTerminalControlSelector {
@@ -386,6 +435,10 @@ type PanTiltAbsoluteControl struct {
 	TiltAbsolute int32
 }
 
+func (ptac *PanTiltAbsoluteControl) FeatureBit() int {
+	return 11
+}
+
 func (ptac *PanTiltAbsoluteControl) Value() CameraTerminalControlSelector {
 	return CameraTerminalControlSelectorPanTiltAbsoluteControl
 }
@@ -409,6 +462,10 @@ type PanTiltRelativeControl struct {
 	PanSpeed     uint8
 	TiltRelative TiltRelative
 	TiltSpeed    uint8
+}
+
+func (ptrc *PanTiltRelativeControl) FeatureBit() int {
+	return 12
 }
 
 func (ptrc *PanTiltRelativeControl) Value() CameraTerminalControlSelector {
@@ -437,6 +494,10 @@ type RollAbsoluteControl struct {
 	RollAbsolute int16
 }
 
+func (rac *RollAbsoluteControl) FeatureBit() int {
+	return 13
+}
+
 func (rac *RollAbsoluteControl) Value() CameraTerminalControlSelector {
 	return CameraTerminalControlSelectorRollAbsoluteControl
 }
@@ -456,6 +517,10 @@ func (rac *RollAbsoluteControl) UnmarshalBinary(buf []byte) error {
 type RollRelativeControl struct {
 	RollRelative RollRelative
 	Speed        uint8
+}
+
+func (rrc *RollRelativeControl) FeatureBit() int {
+	return 14
 }
 
 func (rrc *RollRelativeControl) Value() CameraTerminalControlSelector {
@@ -478,6 +543,10 @@ func (rrc *RollRelativeControl) UnmarshalBinary(buf []byte) error {
 // Control Request for Privacy Control as defined in UVC spec 1.5, 4.2.2.1.18
 type PrivacyControl struct {
 	Privacy bool
+}
+
+func (pc *PrivacyControl) FeatureBit() int {
+	return 18
 }
 
 func (pc *PrivacyControl) Value() CameraTerminalControlSelector {
@@ -511,6 +580,10 @@ type DigitalWindowControl struct {
 
 	Steps      int16
 	StepsUnits StepUnits
+}
+
+func (dwc *DigitalWindowControl) FeatureBit() int {
+	return 20
 }
 
 func (dwc *DigitalWindowControl) Value() CameraTerminalControlSelector {
@@ -548,6 +621,10 @@ type RegionOfInterestControl struct {
 	Bottom       int16
 	Right        int16
 	AutoControls RegionOfInterestAutoControl
+}
+
+func (roic *RegionOfInterestControl) FeatureBit() int {
+	return 21
 }
 
 func (roic *RegionOfInterestControl) Value() CameraTerminalControlSelector {

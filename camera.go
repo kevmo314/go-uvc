@@ -20,7 +20,21 @@ type CameraTerminal struct {
 	CameraDescriptor *descriptors.CameraTerminalDescriptor
 }
 
+func isControlSupported(bmControls []byte, controlBit int) bool {
+	byteIndex := controlBit / 8
+	bitIndex := controlBit % 8
+	return (bmControls[byteIndex] & (1 << bitIndex)) != 0
+}
+
+func (ct *CameraTerminal) IsControlRequestSupported(desc descriptors.CameraTerminalControlDescriptor) bool {
+	return isControlSupported(ct.CameraDescriptor.ControlsBitmask, desc.FeatureBit())
+}
+
 func (ct *CameraTerminal) Read(desc descriptors.CameraTerminalControlDescriptor) error {
+	if !isControlSupported(ct.CameraDescriptor.ControlsBitmask, desc.FeatureBit()) {
+		return fmt.Errorf("control request is not supported")
+	}
+
 	ifnum := ct.usb.altsetting.bInterfaceNumber
 
 	bufLen := 16
