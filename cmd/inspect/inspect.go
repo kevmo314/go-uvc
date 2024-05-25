@@ -170,29 +170,12 @@ func main() {
 			switch ci.Descriptor.(type) {
 			case *descriptors.CameraTerminalDescriptor:
 				app.SetFocus(controlRequests)
-				controlRequests.AddItem("Zoom Absolute", "", 0, func() {
-					controlRequestInput := tview.NewInputField()
 
-					controlRequestInput.SetLabel("Enter zoom value (>= 100): ").
-						SetFieldWidth(10).
-						SetAcceptanceFunc(tview.InputFieldInteger).
-						SetDoneFunc(func(key tcell.Key) {
-							capture, err := strconv.ParseUint(controlRequestInput.GetText(), 10, 16)
-							if err != nil {
-								log.Printf("failed parsing value %s", err)
-								return
-							}
-							setControl := &descriptors.ZoomAbsoluteControl{ObjectiveFocalLength: uint16(capture)}
-							err = ci.CameraTerminal.Set(setControl)
-							if err != nil {
-								log.Printf("control request failed %s", err)
-							}
-							secondColumn.RemoveItem(controlRequestInput)
-							app.SetFocus(controlRequests)
-						})
-					secondColumn.AddItem(controlRequestInput, 1, 1, false)
-					app.SetFocus(controlRequestInput)
-				})
+				controls := ci.CameraTerminal.GetSupportedControls()
+				uiControls := formatCameraControls(ci, app, secondColumn, controls)
+				for _, option := range uiControls {
+					controlRequests.AddItem(option.title, "", 0, option.handler)
+				}
 			}
 		})
 	}
@@ -235,6 +218,66 @@ func NumFrameDescriptors(fd descriptors.FormatDescriptor) uint8 {
 	default:
 		return 0
 	}
+}
+
+type CameraControlsListItem struct {
+	title   string
+	handler func()
+}
+
+func formatCameraControls(ci *uvc.ControlInterface, app *tview.Application, secondColumn *tview.Flex, controls []descriptors.CameraTerminalControlDescriptor) []*CameraControlsListItem {
+	var uiControls []*CameraControlsListItem
+	for _, control := range controls {
+		switch control.(type) {
+		case *descriptors.AutoExposureModeControl:
+		case *descriptors.AutoExposurePriorityControl:
+		case *descriptors.DigitalWindowControl:
+		case *descriptors.PrivacyControl:
+		case *descriptors.FocusAbsoluteControl:
+		case *descriptors.FocusAutoControl:
+		case *descriptors.ExposureTimeAbsoluteControl:
+		case *descriptors.ExposureTimeRelativeControl:
+		case *descriptors.FocusRelativeControl:
+		case *descriptors.FocusSimpleRangeControl:
+		case *descriptors.RollAbsoluteControl:
+		case *descriptors.IrisAbsoluteControl:
+		case *descriptors.IrisRelativeControl:
+		case *descriptors.PanTiltAbsoluteControl:
+		case *descriptors.PanTiltRelativeControl:
+		case *descriptors.RegionOfInterestControl:
+		case *descriptors.RollRelativeControl:
+		case *descriptors.ZoomAbsoluteControl:
+			uiControls = append(uiControls,
+				&CameraControlsListItem{
+					title: "Zoom (Absolute)",
+					handler: func() {
+						initFocus := app.GetFocus()
+						controlRequestInput := tview.NewInputField()
+						controlRequestInput.SetLabel("Enter zoom value (>= 100): ").
+							SetFieldWidth(10).
+							SetAcceptanceFunc(tview.InputFieldInteger).
+							SetDoneFunc(func(key tcell.Key) {
+								capture, err := strconv.ParseUint(controlRequestInput.GetText(), 10, 16)
+								if err != nil {
+									log.Printf("failed parsing value %s", err)
+									return
+								}
+								setControl := &descriptors.ZoomAbsoluteControl{ObjectiveFocalLength: uint16(capture)}
+								err = ci.CameraTerminal.Set(setControl)
+								if err != nil {
+									log.Printf("control request failed %s", err)
+								}
+								secondColumn.RemoveItem(controlRequestInput)
+								app.SetFocus(initFocus)
+							})
+						secondColumn.AddItem(controlRequestInput, 1, 1, false)
+						app.SetFocus(controlRequestInput)
+					},
+				})
+		case *descriptors.ZoomRelativeControl:
+		}
+	}
+	return uiControls
 }
 
 func formatDescriptorTitle(fd descriptors.FormatDescriptor) string {
