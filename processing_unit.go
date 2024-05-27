@@ -46,7 +46,7 @@ func (pu *ProcessingUnit) IsControlRequestSupported(desc descriptors.ProcessingU
 	return (pu.UnitDescriptor.ControlsBitmask[byteIndex] & (1 << bitIndex)) != 0
 }
 
-func (pu *ProcessingUnit) Read(desc descriptors.ProcessingUnitControlDescriptor) error {
+func (pu *ProcessingUnit) Get(desc descriptors.ProcessingUnitControlDescriptor) error {
 	ifnum := pu.usb.altsetting.bInterfaceNumber
 
 	bufLen := 16
