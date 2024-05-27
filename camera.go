@@ -14,10 +14,43 @@ import (
 	"github.com/kevmo314/go-uvc/pkg/requests"
 )
 
+var availableDescriptors = []descriptors.CameraTerminalControlDescriptor{
+	&descriptors.AutoExposureModeControl{},
+	&descriptors.AutoExposurePriorityControl{},
+	&descriptors.DigitalWindowControl{},
+	&descriptors.PrivacyControl{},
+	&descriptors.FocusAbsoluteControl{},
+	&descriptors.FocusAutoControl{},
+	&descriptors.ExposureTimeAbsoluteControl{},
+	&descriptors.ExposureTimeRelativeControl{},
+	&descriptors.FocusRelativeControl{},
+	&descriptors.FocusSimpleRangeControl{},
+	&descriptors.RollAbsoluteControl{},
+	&descriptors.IrisAbsoluteControl{},
+	&descriptors.IrisRelativeControl{},
+	&descriptors.PanTiltAbsoluteControl{},
+	&descriptors.PanTiltRelativeControl{},
+	&descriptors.RegionOfInterestControl{},
+	&descriptors.RollRelativeControl{},
+	&descriptors.ZoomAbsoluteControl{},
+	&descriptors.ZoomRelativeControl{},
+}
+
 type CameraTerminal struct {
 	usb              *C.struct_libusb_interface
 	deviceHandle     *C.struct_libusb_device_handle
 	CameraDescriptor *descriptors.CameraTerminalDescriptor
+}
+
+func (ct *CameraTerminal) GetSupportedControls() []descriptors.CameraTerminalControlDescriptor {
+	var supportedControls []descriptors.CameraTerminalControlDescriptor
+
+	for _, desc := range availableDescriptors {
+		if ct.IsControlRequestSupported(desc) {
+			supportedControls = append(supportedControls, desc)
+		}
+	}
+	return supportedControls
 }
 
 func (ct *CameraTerminal) IsControlRequestSupported(desc descriptors.CameraTerminalControlDescriptor) bool {
