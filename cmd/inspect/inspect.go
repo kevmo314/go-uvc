@@ -69,6 +69,14 @@ func main() {
 
 	controlRequests := tview.NewList().ShowSecondaryText(false)
 	controlRequests.SetBorder(true).SetTitle("Control Requests")
+	controlRequests.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
+			controlRequests.Clear()
+			app.SetFocus(controlIfaces)
+			return nil
+		}
+		return event
+	})
 
 	ifaces := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(streamingIfaces, 0, 1, true).AddItem(controlIfaces, 0, 1, false)
 
