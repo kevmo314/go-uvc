@@ -122,6 +122,30 @@ func (vpcc *VideoProbeCommitControl) UnmarshalBinary(buf []byte) error {
 	return nil
 }
 
+// Control Request for Scanning Mode as defined in UVC spec 1.5, 4.2.2.1.1
+type ScanningModeControl struct {
+	Mode ScanningMode
+}
+
+func (smc *ScanningModeControl) FeatureBit() int {
+	return 0
+}
+
+func (smc *ScanningModeControl) Value() CameraTerminalControlSelector {
+	return CameraTerminalControlSelectorScanningModeControl
+}
+
+func (smc *ScanningModeControl) MarshalBinary() ([]byte, error) {
+	buf := make([]byte, 1)
+	buf[0] = byte(smc.Mode)
+	return buf, nil
+}
+
+func (smc *ScanningModeControl) UnmarshalBinary(buf []byte) error {
+	smc.Mode = ScanningMode(buf[0])
+	return nil
+}
+
 // Control Request for Auto-Exposure Mode as defined in UVC spec 1.5, 4.2.2.1.2
 type AutoExposureModeControl struct {
 	Mode AutoExposureMode

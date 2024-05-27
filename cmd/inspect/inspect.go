@@ -229,6 +229,7 @@ func formatCameraControls(ci *uvc.ControlInterface, app *tview.Application, seco
 	var uiControls []*CameraControlsListItem
 	for _, control := range controls {
 		switch control.(type) {
+		case *descriptors.ScanningModeControl:
 		case *descriptors.AutoExposurePriorityControl:
 		case *descriptors.DigitalWindowControl:
 		case *descriptors.PrivacyControl:
