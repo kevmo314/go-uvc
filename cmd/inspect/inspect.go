@@ -234,7 +234,52 @@ func formatCameraControls(ci *uvc.ControlInterface, app *tview.Application, seco
 		case *descriptors.DigitalWindowControl:
 		case *descriptors.PrivacyControl:
 		case *descriptors.FocusAbsoluteControl:
+			uiControls = append(uiControls,
+				&CameraControlsListItem{
+					title: "Focus (Absolute)",
+					handler: func() {
+						initFocus := app.GetFocus()
+						controlRequestInput := tview.NewInputField()
+						controlRequestInput.SetLabel("Enter focus value: ").
+							SetFieldWidth(10).
+							SetAcceptanceFunc(tview.InputFieldInteger).
+							SetDoneFunc(func(key tcell.Key) {
+								manualFocus := &descriptors.FocusAutoControl{FocusAuto: false}
+								err := ci.CameraTerminal.Set(manualFocus)
+								if err != nil {
+									log.Printf("manual focus request failed %s", err)
+								}
+
+								capture, err := strconv.ParseUint(controlRequestInput.GetText(), 10, 16)
+								if err != nil {
+									log.Printf("failed parsing value %s", err)
+									return
+								}
+								setExposure := &descriptors.FocusAbsoluteControl{Focus: uint16(capture)}
+								err = ci.CameraTerminal.Set(setExposure)
+								if err != nil {
+									log.Printf("absolute focus request failed %s", err)
+								}
+								secondColumn.RemoveItem(controlRequestInput)
+								app.SetFocus(initFocus)
+							})
+						secondColumn.AddItem(controlRequestInput, 1, 1, false)
+						app.SetFocus(controlRequestInput)
+					},
+				})
 		case *descriptors.FocusAutoControl:
+			uiControls = append(uiControls,
+				&CameraControlsListItem{
+					title: "Enable Automatic Focus",
+					handler: func() {
+						log.Println("elllllllllllllllo")
+						manualFocus := &descriptors.FocusAutoControl{FocusAuto: true}
+						err := ci.CameraTerminal.Set(manualFocus)
+						if err != nil {
+							log.Printf("auto focus request failed %s", err)
+						}
+					},
+				})
 		case *descriptors.ExposureTimeAbsoluteControl:
 			uiControls = append(uiControls,
 				&CameraControlsListItem{
@@ -251,8 +296,15 @@ func formatCameraControls(ci *uvc.ControlInterface, app *tview.Application, seco
 									log.Printf("failed parsing value %s", err)
 									return
 								}
-								setControl := &descriptors.ExposureTimeAbsoluteControl{Time: uint32(capture)}
-								err = ci.CameraTerminal.Set(setControl)
+
+								manualExposure := &descriptors.AutoExposureModeControl{Mode: descriptors.AutoExposureModeManual}
+								err = ci.CameraTerminal.Set(manualExposure)
+								if err != nil {
+									log.Printf("manual focus request failed %s", err)
+								}
+
+								setExposure := &descriptors.ExposureTimeAbsoluteControl{Time: uint32(capture)}
+								err = ci.CameraTerminal.Set(setExposure)
 								if err != nil {
 									log.Printf("control request failed %s", err)
 								}
