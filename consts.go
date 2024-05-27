@@ -50,31 +50,6 @@ const (
 	SelectorUnitInputSelectControl                                   = 0x01
 )
 
-type ProcessingUnitControlSelector int
-
-const (
-	ProcessingUnitControlSelectorUndefined           ProcessingUnitControlSelector = 0x00
-	ProcessingUnitBacklightCompensationControl                                     = 0x01
-	ProcessingUnitBrightnessControl                                                = 0x02
-	ProcessingUnitContrastControl                                                  = 0x03
-	ProcessingUnitGainControl                                                      = 0x04
-	ProcessingUnitPowerLineFrequencyControl                                        = 0x05
-	ProcessingUnitHueControl                                                       = 0x06
-	ProcessingUnitSaturationControl                                                = 0x07
-	ProcessingUnitSharpnessControl                                                 = 0x08
-	ProcessingUnitGammaControl                                                     = 0x09
-	ProcessingUnitWhiteBalanceTemperatureControl                                   = 0x0A
-	ProcessingUnitWhiteBalanceTemperatureAutoControl                               = 0x0B
-	ProcessingUnitWhiteBalanceComponentControl                                     = 0x0C
-	ProcessingUnitWhiteBalanceComponentAutoControl                                 = 0x0D
-	ProcessingUnitDigitalMultiplierControl                                         = 0x0E
-	ProcessingUnitDigitalMultiplierLimitControl                                    = 0x0F
-	ProcessingUnitHueAutoControl                                                   = 0x10
-	ProcessingUnitAnalogVideoStandardControl                                       = 0x11
-	ProcessingUnitAnalogVideoLockStatusControl                                     = 0x12
-	ProcessingUnitContrastAutoControl                                              = 0x13
-)
-
 type EncodingUnitControlSelector int
 
 const (
