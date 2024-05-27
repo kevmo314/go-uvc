@@ -16,7 +16,11 @@ import (
 import "C"
 
 var puControls = []descriptors.ProcessingUnitControlDescriptor{
+	&descriptors.BacklightCompensationControl{},
 	&descriptors.BrightnessControl{},
+	&descriptors.ContrastControl{},
+	&descriptors.GainControl{},
+	&descriptors.SaturationControl{},
 }
 
 type ProcessingUnit struct {

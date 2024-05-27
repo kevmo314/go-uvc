@@ -37,6 +37,29 @@ type ProcessingUnitControlDescriptor interface {
 	encoding.BinaryUnmarshaler
 }
 
+type BacklightCompensationControl struct {
+	BacklightCompensation uint16
+}
+
+func (bcc *BacklightCompensationControl) FeatureBit() int {
+	return 8
+}
+
+func (bcc *BacklightCompensationControl) Value() ProcessingUnitControlSelector {
+	return ProcessingUnitBacklightCompensationControl
+}
+
+func (bcc *BacklightCompensationControl) MarshalBinary() ([]byte, error) {
+	buf := make([]byte, 2)
+	binary.LittleEndian.PutUint16(buf, bcc.BacklightCompensation)
+	return buf, nil
+}
+
+func (bcc *BacklightCompensationControl) UnmarshalBinary(buf []byte) error {
+	bcc.BacklightCompensation = binary.LittleEndian.Uint16(buf)
+	return nil
+}
+
 type BrightnessControl struct {
 	Brightness uint16
 }
@@ -57,5 +80,74 @@ func (bc *BrightnessControl) MarshalBinary() ([]byte, error) {
 
 func (bc *BrightnessControl) UnmarshalBinary(buf []byte) error {
 	bc.Brightness = binary.LittleEndian.Uint16(buf)
+	return nil
+}
+
+type ContrastControl struct {
+	Contrast uint16
+}
+
+func (cc *ContrastControl) FeatureBit() int {
+	return 1
+}
+
+func (cc *ContrastControl) Value() ProcessingUnitControlSelector {
+	return ProcessingUnitContrastControl
+}
+
+func (cc *ContrastControl) MarshalBinary() ([]byte, error) {
+	buf := make([]byte, 2)
+	binary.LittleEndian.PutUint16(buf, cc.Contrast)
+	return buf, nil
+}
+
+func (cc *ContrastControl) UnmarshalBinary(buf []byte) error {
+	cc.Contrast = binary.LittleEndian.Uint16(buf)
+	return nil
+}
+
+type GainControl struct {
+	Gain uint16
+}
+
+func (gc *GainControl) FeatureBit() int {
+	return 9
+}
+
+func (gc *GainControl) Value() ProcessingUnitControlSelector {
+	return ProcessingUnitGainControl
+}
+
+func (gc *GainControl) MarshalBinary() ([]byte, error) {
+	buf := make([]byte, 2)
+	binary.LittleEndian.PutUint16(buf, gc.Gain)
+	return buf, nil
+}
+
+func (gc *GainControl) UnmarshalBinary(buf []byte) error {
+	gc.Gain = binary.LittleEndian.Uint16(buf)
+	return nil
+}
+
+type SaturationControl struct {
+	Saturation uint16
+}
+
+func (sc *SaturationControl) FeatureBit() int {
+	return 3
+}
+
+func (sc *SaturationControl) Value() ProcessingUnitControlSelector {
+	return ProcessingUnitSaturationControl
+}
+
+func (sc *SaturationControl) MarshalBinary() ([]byte, error) {
+	buf := make([]byte, 2)
+	binary.LittleEndian.PutUint16(buf, sc.Saturation)
+	return buf, nil
+}
+
+func (sc *SaturationControl) UnmarshalBinary(buf []byte) error {
+	sc.Saturation = binary.LittleEndian.Uint16(buf)
 	return nil
 }
