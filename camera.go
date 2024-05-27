@@ -15,6 +15,7 @@ import (
 )
 
 var availableDescriptors = []descriptors.CameraTerminalControlDescriptor{
+	&descriptors.ScanningModeControl{},
 	&descriptors.AutoExposureModeControl{},
 	&descriptors.AutoExposurePriorityControl{},
 	&descriptors.DigitalWindowControl{},

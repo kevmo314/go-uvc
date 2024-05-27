@@ -26,6 +26,13 @@ const (
 	CameraTerminalControlSelectorRegionOfInterestControl     CameraTerminalControlSelector = 0x14
 )
 
+type ScanningMode int
+
+const (
+	ScanningModeInterlaced  ScanningMode = 0
+	ScanningModeProgressive ScanningMode = 1
+)
+
 type AutoExposureMode int
 
 const (
