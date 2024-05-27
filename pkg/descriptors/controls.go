@@ -132,7 +132,7 @@ func (aemc *AutoExposureModeControl) FeatureBit() int {
 }
 
 func (aemc *AutoExposureModeControl) Value() CameraTerminalControlSelector {
-	return CameraTerminalControlSelectorAutoExposurePriorityControl
+	return CameraTerminalControlSelectorAutoExposureModeControl
 }
 
 func (aemc *AutoExposureModeControl) MarshalBinary() ([]byte, error) {

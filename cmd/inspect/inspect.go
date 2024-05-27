@@ -229,13 +229,39 @@ func formatCameraControls(ci *uvc.ControlInterface, app *tview.Application, seco
 	var uiControls []*CameraControlsListItem
 	for _, control := range controls {
 		switch control.(type) {
-		case *descriptors.AutoExposureModeControl:
 		case *descriptors.AutoExposurePriorityControl:
 		case *descriptors.DigitalWindowControl:
 		case *descriptors.PrivacyControl:
 		case *descriptors.FocusAbsoluteControl:
 		case *descriptors.FocusAutoControl:
 		case *descriptors.ExposureTimeAbsoluteControl:
+			uiControls = append(uiControls,
+				&CameraControlsListItem{
+					title: "Exposure Time (Absolute)",
+					handler: func() {
+						initFocus := app.GetFocus()
+						controlRequestInput := tview.NewInputField()
+						controlRequestInput.SetLabel("Enter exposure value: ").
+							SetFieldWidth(10).
+							SetAcceptanceFunc(tview.InputFieldInteger).
+							SetDoneFunc(func(key tcell.Key) {
+								capture, err := strconv.ParseUint(controlRequestInput.GetText(), 10, 16)
+								if err != nil {
+									log.Printf("failed parsing value %s", err)
+									return
+								}
+								setControl := &descriptors.ExposureTimeAbsoluteControl{Time: uint32(capture)}
+								err = ci.CameraTerminal.Set(setControl)
+								if err != nil {
+									log.Printf("control request failed %s", err)
+								}
+								secondColumn.RemoveItem(controlRequestInput)
+								app.SetFocus(initFocus)
+							})
+						secondColumn.AddItem(controlRequestInput, 1, 1, false)
+						app.SetFocus(controlRequestInput)
+					},
+				})
 		case *descriptors.ExposureTimeRelativeControl:
 		case *descriptors.FocusRelativeControl:
 		case *descriptors.FocusSimpleRangeControl:
