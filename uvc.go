@@ -53,6 +53,7 @@ func (d *UVCDevice) Close() error {
 
 type ControlInterface struct {
 	CameraTerminal *CameraTerminal
+	ProcessingUnit *ProcessingUnit
 	Descriptor     descriptors.ControlInterface
 }
 
@@ -106,20 +107,27 @@ func (d *UVCDevice) DeviceInfo() (*DeviceInfo, error) {
 			return nil, err
 		}
 		switch ci := ci.(type) {
+		case *descriptors.ProcessingUnitDescriptor:
+			processingUnit := &ProcessingUnit{
+				usb:            &ifaces[ifaceIdx],
+				deviceHandle:   d.handle,
+				UnitDescriptor: ci,
+			}
+			info.ControlInterfaces = append(info.ControlInterfaces, &ControlInterface{ProcessingUnit: processingUnit, Descriptor: ci})
 		case *descriptors.InputTerminalDescriptor:
 			it, err := descriptors.UnmarshalInputTerminal(block)
 			if err != nil {
 				return nil, err
 			}
 
-			switch camDesc := it.(type) {
+			switch descriptor := it.(type) {
 			case *descriptors.CameraTerminalDescriptor:
 				camera := &CameraTerminal{
 					usb:              &ifaces[ifaceIdx],
 					deviceHandle:     d.handle,
-					CameraDescriptor: camDesc,
+					CameraDescriptor: descriptor,
 				}
-				info.ControlInterfaces = append(info.ControlInterfaces, &ControlInterface{CameraTerminal: camera, Descriptor: camDesc})
+				info.ControlInterfaces = append(info.ControlInterfaces, &ControlInterface{CameraTerminal: camera, Descriptor: descriptor})
 			}
 		case *descriptors.HeaderDescriptor:
 			info.bcdUVC = ci.UVC

@@ -69,6 +69,14 @@ func main() {
 
 	controlRequests := tview.NewList().ShowSecondaryText(false)
 	controlRequests.SetBorder(true).SetTitle("Control Requests")
+	controlRequests.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyEscape {
+			controlRequests.Clear()
+			app.SetFocus(controlIfaces)
+			return nil
+		}
+		return event
+	})
 
 	ifaces := tview.NewFlex().SetDirection(tview.FlexRow).AddItem(streamingIfaces, 0, 1, true).AddItem(controlIfaces, 0, 1, false)
 
@@ -176,6 +184,32 @@ func main() {
 				for _, option := range uiControls {
 					controlRequests.AddItem(option.title, "", 0, option.handler)
 				}
+			case *descriptors.ProcessingUnitDescriptor:
+				app.SetFocus(controlRequests)
+
+				controlRequests.AddItem("Brightness", "", 0, func() {
+					initFocus := app.GetFocus()
+					controlRequestInput := tview.NewInputField()
+					controlRequestInput.SetLabel("Enter brightness value: ").
+						SetFieldWidth(10).
+						SetAcceptanceFunc(tview.InputFieldInteger).
+						SetDoneFunc(func(key tcell.Key) {
+							capture, err := strconv.ParseUint(controlRequestInput.GetText(), 10, 16)
+							if err != nil {
+								log.Printf("failed parsing value %s", err)
+								return
+							}
+							setBrightness := &descriptors.BrightnessControl{Brightness: uint16(capture)}
+							err = ci.ProcessingUnit.Set(setBrightness)
+							if err != nil {
+								log.Printf("brightness request failed %s", err)
+							}
+							secondColumn.RemoveItem(controlRequestInput)
+							app.SetFocus(initFocus)
+						})
+					secondColumn.AddItem(controlRequestInput, 1, 1, false)
+					app.SetFocus(controlRequestInput)
+				})
 			}
 		})
 	}
@@ -272,7 +306,6 @@ func formatCameraControls(ci *uvc.ControlInterface, app *tview.Application, seco
 				&CameraControlsListItem{
 					title: "Enable Automatic Focus",
 					handler: func() {
-						log.Println("elllllllllllllllo")
 						manualFocus := &descriptors.FocusAutoControl{FocusAuto: true}
 						err := ci.CameraTerminal.Set(manualFocus)
 						if err != nil {
