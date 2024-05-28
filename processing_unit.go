@@ -19,8 +19,22 @@ var puControls = []descriptors.ProcessingUnitControlDescriptor{
 	&descriptors.BacklightCompensationControl{},
 	&descriptors.BrightnessControl{},
 	&descriptors.ContrastControl{},
+	&descriptors.ContrastAutoControl{},
 	&descriptors.GainControl{},
+	&descriptors.PowerLineFrequencyControl{},
+	&descriptors.HueControl{},
+	&descriptors.HueAutoControl{},
 	&descriptors.SaturationControl{},
+	&descriptors.SharpnessControl{},
+	&descriptors.GammaControl{},
+	&descriptors.WhiteBalanceTemperatureControl{},
+	&descriptors.WhiteBalanceTemperatureAutoControl{},
+	&descriptors.WhiteBalanceComponentControl{},
+	&descriptors.WhiteBalanceComponentAutoControl{},
+	&descriptors.DigitalMultiplerControl{},
+	&descriptors.DigitalMultiplerLimitControl{},
+	&descriptors.AnalogVideoStandardControl{},
+	&descriptors.AnalogVideoLockStatusControl{},
 }
 
 type ProcessingUnit struct {
