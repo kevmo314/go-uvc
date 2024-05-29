@@ -54,8 +54,6 @@ func main() {
 		panic(err)
 	}
 
-	go ctx.EventLoop()
-
 	info, err := ctx.DeviceInfo()
 	if err != nil {
 		panic(err)
