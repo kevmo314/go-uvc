@@ -60,7 +60,7 @@ func (ct *CameraTerminal) IsControlRequestSupported(desc descriptors.CameraTermi
 	return (ct.CameraDescriptor.ControlsBitmask[byteIndex] & (1 << bitIndex)) != 0
 }
 
-func (ct *CameraTerminal) Read(desc descriptors.CameraTerminalControlDescriptor) error {
+func (ct *CameraTerminal) Get(desc descriptors.CameraTerminalControlDescriptor) error {
 	ifnum := ct.usb.altsetting.bInterfaceNumber
 
 	bufLen := 16
