@@ -57,6 +57,12 @@ func (pu *ProcessingUnit) GetSupportedControls() []descriptors.ProcessingUnitCon
 func (pu *ProcessingUnit) IsControlRequestSupported(desc descriptors.ProcessingUnitControlDescriptor) bool {
 	byteIndex := desc.FeatureBit() / 8
 	bitIndex := desc.FeatureBit() % 8
+
+	// Support devices that follow older UVC versions (PUD lenght 10+n vs 13). See UVC 1.1
+	if byteIndex >= len(pu.UnitDescriptor.ControlsBitmask) {
+		return false
+	}
+
 	return (pu.UnitDescriptor.ControlsBitmask[byteIndex] & (1 << bitIndex)) != 0
 }
 
