@@ -245,7 +245,7 @@ func formatProcessingControls(ci *uvc.ControlInterface, app *tview.Application, 
 	controls []descriptors.ProcessingUnitControlDescriptor) []*ControlRequestListItem {
 	var uiControls []*ControlRequestListItem
 	for _, control := range controls {
-		controlUI := appendPUDUI(control, app, ci, secondColumn)
+		controlUI := generatePUDUI(control, app, ci, secondColumn)
 
 		if controlUI != nil {
 			uiControls = append(uiControls, controlUI)
@@ -255,7 +255,7 @@ func formatProcessingControls(ci *uvc.ControlInterface, app *tview.Application, 
 	return uiControls
 }
 
-func appendPUDUI(control descriptors.ProcessingUnitControlDescriptor, app *tview.Application, ci *uvc.ControlInterface, secondColumn *tview.Flex) *ControlRequestListItem {
+func generatePUDUI(control descriptors.ProcessingUnitControlDescriptor, app *tview.Application, ci *uvc.ControlInterface, secondColumn *tview.Flex) *ControlRequestListItem {
 	switch control.(type) {
 	case *descriptors.BacklightCompensationControl:
 	case *descriptors.BrightnessControl:
@@ -406,7 +406,7 @@ func formatCameraControls(ci *uvc.ControlInterface, app *tview.Application, seco
 	controls []descriptors.CameraTerminalControlDescriptor) []*ControlRequestListItem {
 	var uiControls []*ControlRequestListItem
 	for _, control := range controls {
-		controlUI := appendCTUI(control, app, ci, secondColumn)
+		controlUI := generateCTUI(control, app, ci, secondColumn)
 
 		if controlUI != nil {
 			uiControls = append(uiControls, controlUI)
@@ -415,7 +415,7 @@ func formatCameraControls(ci *uvc.ControlInterface, app *tview.Application, seco
 	return uiControls
 }
 
-func appendCTUI(control descriptors.CameraTerminalControlDescriptor, app *tview.Application,
+func generateCTUI(control descriptors.CameraTerminalControlDescriptor, app *tview.Application,
 	ci *uvc.ControlInterface, secondColumn *tview.Flex) *ControlRequestListItem {
 	switch control.(type) {
 	case *descriptors.ScanningModeControl:
