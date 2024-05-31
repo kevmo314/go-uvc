@@ -245,17 +245,21 @@ func formatProcessingControls(ci *uvc.ControlInterface, app *tview.Application, 
 	controls []descriptors.ProcessingUnitControlDescriptor) []*ControlRequestListItem {
 	var uiControls []*ControlRequestListItem
 	for _, control := range controls {
-		uiControls = appendPUDUI(control, uiControls, app, ci, secondColumn)
+		controlUI := appendPUDUI(control, app, ci, secondColumn)
+
+		if controlUI != nil {
+			uiControls = append(uiControls, controlUI)
+		}
 
 	}
 	return uiControls
 }
 
-func appendPUDUI(control descriptors.ProcessingUnitControlDescriptor, uiControls []*ControlRequestListItem, app *tview.Application, ci *uvc.ControlInterface, secondColumn *tview.Flex) []*ControlRequestListItem {
+func appendPUDUI(control descriptors.ProcessingUnitControlDescriptor, app *tview.Application, ci *uvc.ControlInterface, secondColumn *tview.Flex) *ControlRequestListItem {
 	switch control.(type) {
 	case *descriptors.BacklightCompensationControl:
 	case *descriptors.BrightnessControl:
-		uiControls = append(uiControls, &ControlRequestListItem{
+		return &ControlRequestListItem{
 			title: "Brightness",
 			handler: func() {
 				initFocus := app.GetFocus()
@@ -279,9 +283,9 @@ func appendPUDUI(control descriptors.ProcessingUnitControlDescriptor, uiControls
 				secondColumn.AddItem(controlRequestInput, 1, 1, false)
 				app.SetFocus(controlRequestInput)
 			},
-		})
+		}
 	case *descriptors.ContrastControl:
-		uiControls = append(uiControls, &ControlRequestListItem{
+		return &ControlRequestListItem{
 			title: "Contrast",
 			handler: func() {
 				initFocus := app.GetFocus()
@@ -305,10 +309,10 @@ func appendPUDUI(control descriptors.ProcessingUnitControlDescriptor, uiControls
 				secondColumn.AddItem(controlRequestInput, 1, 1, false)
 				app.SetFocus(controlRequestInput)
 			},
-		})
+		}
 	case *descriptors.ContrastAutoControl:
 	case *descriptors.GainControl:
-		uiControls = append(uiControls, &ControlRequestListItem{
+		return &ControlRequestListItem{
 			title: "Gain",
 			handler: func() {
 				initFocus := app.GetFocus()
@@ -331,13 +335,12 @@ func appendPUDUI(control descriptors.ProcessingUnitControlDescriptor, uiControls
 					})
 				secondColumn.AddItem(controlRequestInput, 1, 1, false)
 				app.SetFocus(controlRequestInput)
-			},
-		})
+			}}
 	case *descriptors.PowerLineFrequencyControl:
 	case *descriptors.HueControl:
 	case *descriptors.HueAutoControl:
 	case *descriptors.SaturationControl:
-		uiControls = append(uiControls, &ControlRequestListItem{
+		return &ControlRequestListItem{
 			title: "Saturation",
 			handler: func() {
 				initFocus := app.GetFocus()
@@ -360,10 +363,9 @@ func appendPUDUI(control descriptors.ProcessingUnitControlDescriptor, uiControls
 					})
 				secondColumn.AddItem(controlRequestInput, 1, 1, false)
 				app.SetFocus(controlRequestInput)
-			},
-		})
+			}}
 	case *descriptors.SharpnessControl:
-		uiControls = append(uiControls, &ControlRequestListItem{
+		return &ControlRequestListItem{
 			title: "Sharpness",
 			handler: func() {
 				initFocus := app.GetFocus()
@@ -386,8 +388,7 @@ func appendPUDUI(control descriptors.ProcessingUnitControlDescriptor, uiControls
 					})
 				secondColumn.AddItem(controlRequestInput, 1, 1, false)
 				app.SetFocus(controlRequestInput)
-			},
-		})
+			}}
 	case *descriptors.GammaControl:
 	case *descriptors.WhiteBalanceTemperatureControl:
 	case *descriptors.WhiteBalanceTemperatureAutoControl:
@@ -398,104 +399,102 @@ func appendPUDUI(control descriptors.ProcessingUnitControlDescriptor, uiControls
 	case *descriptors.AnalogVideoStandardControl:
 	case *descriptors.AnalogVideoLockStatusControl:
 	}
-	return uiControls
+	return nil
 }
 
 func formatCameraControls(ci *uvc.ControlInterface, app *tview.Application, secondColumn *tview.Flex,
 	controls []descriptors.CameraTerminalControlDescriptor) []*ControlRequestListItem {
 	var uiControls []*ControlRequestListItem
 	for _, control := range controls {
-		uiControls = appendCTUI(control, uiControls, app, ci, secondColumn)
+		controlUI := appendCTUI(control, app, ci, secondColumn)
+
+		if controlUI != nil {
+			uiControls = append(uiControls, controlUI)
+		}
 	}
 	return uiControls
 }
 
-func appendCTUI(control descriptors.CameraTerminalControlDescriptor, uiControls []*ControlRequestListItem,
-	app *tview.Application, ci *uvc.ControlInterface, secondColumn *tview.Flex) []*ControlRequestListItem {
+func appendCTUI(control descriptors.CameraTerminalControlDescriptor, app *tview.Application,
+	ci *uvc.ControlInterface, secondColumn *tview.Flex) *ControlRequestListItem {
 	switch control.(type) {
 	case *descriptors.ScanningModeControl:
 	case *descriptors.AutoExposurePriorityControl:
 	case *descriptors.DigitalWindowControl:
 	case *descriptors.PrivacyControl:
 	case *descriptors.FocusAbsoluteControl:
-		uiControls = append(uiControls,
-			&ControlRequestListItem{
-				title: "Focus (Absolute)",
-				handler: func() {
-					initFocus := app.GetFocus()
-					controlRequestInput := tview.NewInputField()
-					controlRequestInput.SetLabel("Enter focus value: ").
-						SetFieldWidth(10).
-						SetAcceptanceFunc(tview.InputFieldInteger).
-						SetDoneFunc(func(key tcell.Key) {
-							manualFocus := &descriptors.FocusAutoControl{FocusAuto: false}
-							err := ci.CameraTerminal.Set(manualFocus)
-							if err != nil {
-								log.Printf("manual focus request failed %s", err)
-							}
+		return &ControlRequestListItem{
+			title: "Focus (Absolute)",
+			handler: func() {
+				initFocus := app.GetFocus()
+				controlRequestInput := tview.NewInputField()
+				controlRequestInput.SetLabel("Enter focus value: ").
+					SetFieldWidth(10).
+					SetAcceptanceFunc(tview.InputFieldInteger).
+					SetDoneFunc(func(key tcell.Key) {
+						manualFocus := &descriptors.FocusAutoControl{FocusAuto: false}
+						err := ci.CameraTerminal.Set(manualFocus)
+						if err != nil {
+							log.Printf("manual focus request failed %s", err)
+						}
 
-							capture, err := strconv.ParseUint(controlRequestInput.GetText(), 10, 16)
-							if err != nil {
-								log.Printf("failed parsing value %s", err)
-							}
-							setExposure := &descriptors.FocusAbsoluteControl{Focus: uint16(capture)}
-							err = ci.CameraTerminal.Set(setExposure)
-							if err != nil {
-								log.Printf("absolute focus request failed %s", err)
-							}
-							secondColumn.RemoveItem(controlRequestInput)
-							app.SetFocus(initFocus)
-						})
-					secondColumn.AddItem(controlRequestInput, 1, 1, false)
-					app.SetFocus(controlRequestInput)
-				},
-			})
+						capture, err := strconv.ParseUint(controlRequestInput.GetText(), 10, 16)
+						if err != nil {
+							log.Printf("failed parsing value %s", err)
+						}
+						setExposure := &descriptors.FocusAbsoluteControl{Focus: uint16(capture)}
+						err = ci.CameraTerminal.Set(setExposure)
+						if err != nil {
+							log.Printf("absolute focus request failed %s", err)
+						}
+						secondColumn.RemoveItem(controlRequestInput)
+						app.SetFocus(initFocus)
+					})
+				secondColumn.AddItem(controlRequestInput, 1, 1, false)
+				app.SetFocus(controlRequestInput)
+			}}
 	case *descriptors.FocusAutoControl:
-		uiControls = append(uiControls,
-			&ControlRequestListItem{
-				title: "Enable Automatic Focus",
-				handler: func() {
-					manualFocus := &descriptors.FocusAutoControl{FocusAuto: true}
-					err := ci.CameraTerminal.Set(manualFocus)
-					if err != nil {
-						log.Printf("auto focus request failed %s", err)
-					}
-				},
-			})
+		return &ControlRequestListItem{
+			title: "Enable Automatic Focus",
+			handler: func() {
+				manualFocus := &descriptors.FocusAutoControl{FocusAuto: true}
+				err := ci.CameraTerminal.Set(manualFocus)
+				if err != nil {
+					log.Printf("auto focus request failed %s", err)
+				}
+			}}
 	case *descriptors.ExposureTimeAbsoluteControl:
-		uiControls = append(uiControls,
-			&ControlRequestListItem{
-				title: "Exposure Time (Absolute)",
-				handler: func() {
-					initFocus := app.GetFocus()
-					controlRequestInput := tview.NewInputField()
-					controlRequestInput.SetLabel("Enter exposure value: ").
-						SetFieldWidth(10).
-						SetAcceptanceFunc(tview.InputFieldInteger).
-						SetDoneFunc(func(key tcell.Key) {
-							capture, err := strconv.ParseUint(controlRequestInput.GetText(), 10, 16)
-							if err != nil {
-								log.Printf("failed parsing value %s", err)
-							}
+		return &ControlRequestListItem{
+			title: "Exposure Time (Absolute)",
+			handler: func() {
+				initFocus := app.GetFocus()
+				controlRequestInput := tview.NewInputField()
+				controlRequestInput.SetLabel("Enter exposure value: ").
+					SetFieldWidth(10).
+					SetAcceptanceFunc(tview.InputFieldInteger).
+					SetDoneFunc(func(key tcell.Key) {
+						capture, err := strconv.ParseUint(controlRequestInput.GetText(), 10, 16)
+						if err != nil {
+							log.Printf("failed parsing value %s", err)
+						}
 
-							manualExposure := &descriptors.AutoExposureModeControl{Mode: descriptors.AutoExposureModeManual}
-							err = ci.CameraTerminal.Set(manualExposure)
-							if err != nil {
-								log.Printf("manual focus request failed %s", err)
-							}
+						manualExposure := &descriptors.AutoExposureModeControl{Mode: descriptors.AutoExposureModeManual}
+						err = ci.CameraTerminal.Set(manualExposure)
+						if err != nil {
+							log.Printf("manual focus request failed %s", err)
+						}
 
-							setExposure := &descriptors.ExposureTimeAbsoluteControl{Time: uint32(capture)}
-							err = ci.CameraTerminal.Set(setExposure)
-							if err != nil {
-								log.Printf("control request failed %s", err)
-							}
-							secondColumn.RemoveItem(controlRequestInput)
-							app.SetFocus(initFocus)
-						})
-					secondColumn.AddItem(controlRequestInput, 1, 1, false)
-					app.SetFocus(controlRequestInput)
-				},
-			})
+						setExposure := &descriptors.ExposureTimeAbsoluteControl{Time: uint32(capture)}
+						err = ci.CameraTerminal.Set(setExposure)
+						if err != nil {
+							log.Printf("control request failed %s", err)
+						}
+						secondColumn.RemoveItem(controlRequestInput)
+						app.SetFocus(initFocus)
+					})
+				secondColumn.AddItem(controlRequestInput, 1, 1, false)
+				app.SetFocus(controlRequestInput)
+			}}
 	case *descriptors.ExposureTimeRelativeControl:
 	case *descriptors.FocusRelativeControl:
 	case *descriptors.FocusSimpleRangeControl:
@@ -507,35 +506,33 @@ func appendCTUI(control descriptors.CameraTerminalControlDescriptor, uiControls 
 	case *descriptors.RegionOfInterestControl:
 	case *descriptors.RollRelativeControl:
 	case *descriptors.ZoomAbsoluteControl:
-		uiControls = append(uiControls,
-			&ControlRequestListItem{
-				title: "Zoom (Absolute)",
-				handler: func() {
-					initFocus := app.GetFocus()
-					controlRequestInput := tview.NewInputField()
-					controlRequestInput.SetLabel("Enter zoom value (>= 100): ").
-						SetFieldWidth(10).
-						SetAcceptanceFunc(tview.InputFieldInteger).
-						SetDoneFunc(func(key tcell.Key) {
-							capture, err := strconv.ParseUint(controlRequestInput.GetText(), 10, 16)
-							if err != nil {
-								log.Printf("failed parsing value %s", err)
-							}
-							setControl := &descriptors.ZoomAbsoluteControl{ObjectiveFocalLength: uint16(capture)}
-							err = ci.CameraTerminal.Set(setControl)
-							if err != nil {
-								log.Printf("control request failed %s", err)
-							}
-							secondColumn.RemoveItem(controlRequestInput)
-							app.SetFocus(initFocus)
-						})
-					secondColumn.AddItem(controlRequestInput, 1, 1, false)
-					app.SetFocus(controlRequestInput)
-				},
-			})
+		return &ControlRequestListItem{
+			title: "Zoom (Absolute)",
+			handler: func() {
+				initFocus := app.GetFocus()
+				controlRequestInput := tview.NewInputField()
+				controlRequestInput.SetLabel("Enter zoom value (>= 100): ").
+					SetFieldWidth(10).
+					SetAcceptanceFunc(tview.InputFieldInteger).
+					SetDoneFunc(func(key tcell.Key) {
+						capture, err := strconv.ParseUint(controlRequestInput.GetText(), 10, 16)
+						if err != nil {
+							log.Printf("failed parsing value %s", err)
+						}
+						setControl := &descriptors.ZoomAbsoluteControl{ObjectiveFocalLength: uint16(capture)}
+						err = ci.CameraTerminal.Set(setControl)
+						if err != nil {
+							log.Printf("control request failed %s", err)
+						}
+						secondColumn.RemoveItem(controlRequestInput)
+						app.SetFocus(initFocus)
+					})
+				secondColumn.AddItem(controlRequestInput, 1, 1, false)
+				app.SetFocus(controlRequestInput)
+			}}
 	case *descriptors.ZoomRelativeControl:
 	}
-	return uiControls
+	return nil
 }
 
 func formatDescriptorTitle(fd descriptors.FormatDescriptor) string {
