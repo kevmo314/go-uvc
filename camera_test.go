@@ -35,7 +35,7 @@ func TestAutoExposureMode(t *testing.T) {
 			}
 
 			control := &descriptors.AutoExposureModeControl{}
-			if err = iface.CameraTerminal.Read(control); err != nil {
+			if err = iface.CameraTerminal.Get(control); err != nil {
 				t.Fatal(err)
 			}
 
@@ -79,7 +79,7 @@ func TestAutoFocus(t *testing.T) {
 			}
 
 			control := &descriptors.FocusAutoControl{}
-			if err = iface.CameraTerminal.Read(control); err != nil {
+			if err = iface.CameraTerminal.Get(control); err != nil {
 				t.Fatal(err)
 			}
 
