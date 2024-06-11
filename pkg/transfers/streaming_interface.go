@@ -168,7 +168,7 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 	}
 
 	// unmarshal the negotiated values
-	if err := vpcc.UnmarshalBinary(C.GoBytes(unsafe.Pointer(buf), C.int(size))); err != nil {
+	if err := vpcc.UnmarshalBinary(unsafe.Slice((*byte)(buf), size)); err != nil {
 		return nil, err
 	}
 

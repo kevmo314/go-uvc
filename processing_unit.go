@@ -86,7 +86,7 @@ func (pu *ProcessingUnit) Get(desc descriptors.ProcessingUnitControlDescriptor) 
 		return fmt.Errorf("libusb_control_transfer failed: %w", libusberror(ret))
 	}
 
-	if err := desc.UnmarshalBinary(C.GoBytes(unsafe.Pointer(buf), C.int(bufLen))); err != nil {
+	if err := desc.UnmarshalBinary(unsafe.Slice((*byte)(buf), bufLen)); err != nil {
 		return err
 	}
 
