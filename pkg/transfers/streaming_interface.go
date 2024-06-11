@@ -114,14 +114,14 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 	}
 
 	// assign the values
-	if err := vpcc.UnmarshalBinary((*[1 << 30]byte)(unsafe.Pointer(buf))[:size]); err != nil {
+	if err := vpcc.UnmarshalBinary(unsafe.Slice((*byte)(buf), size)); err != nil {
 		return nil, err
 	}
 
 	vpcc.FormatIndex = formatIndex
 	vpcc.FrameIndex = frameIndex
 
-	if err := vpcc.MarshalInto((*[1 << 30]byte)(unsafe.Pointer(buf))[:size]); err != nil {
+	if err := vpcc.MarshalInto(unsafe.Slice((*byte)(buf), size)); err != nil {
 		return nil, err
 	}
 

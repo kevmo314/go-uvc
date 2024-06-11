@@ -77,7 +77,7 @@ func (d *UVCDevice) DeviceInfo() (*DeviceInfo, error) {
 		return nil, err
 	}
 	ifaceIdx := -1
-	ifaces := (*[1 << 30]C.struct_libusb_interface)(unsafe.Pointer(configDesc._interface))[:configDesc.bNumInterfaces]
+	ifaces := unsafe.Slice(configDesc._interface, configDesc.bNumInterfaces)
 	for i, iface := range ifaces {
 		if isTISCamera && iface.altsetting.bInterfaceClass == 255 && iface.altsetting.bInterfaceSubClass == 1 {
 			ifaceIdx = i
@@ -94,7 +94,7 @@ func (d *UVCDevice) DeviceInfo() (*DeviceInfo, error) {
 
 	videoInterface := &ifaces[ifaceIdx]
 
-	vcbuf := (*[1 << 30]byte)(unsafe.Pointer(videoInterface.altsetting.extra))[:videoInterface.altsetting.extra_length]
+	vcbuf := unsafe.Slice((*byte)(videoInterface.altsetting.extra), videoInterface.altsetting.extra_length)
 
 	for i := 0; i != len(vcbuf); i += int(vcbuf[i]) {
 		block := vcbuf[i : i+int(vcbuf[i])]
@@ -133,7 +133,7 @@ func (d *UVCDevice) DeviceInfo() (*DeviceInfo, error) {
 			info.bcdUVC = ci.UVC
 			// pull the streaming interfaces too
 			for _, i := range ci.VideoStreamingInterfaceIndexes {
-				vsbuf := (*[1 << 30]byte)(unsafe.Pointer(ifaces[i].altsetting.extra))[:ifaces[i].altsetting.extra_length]
+				vsbuf := unsafe.Slice((*byte)(ifaces[i].altsetting.extra), ifaces[i].altsetting.extra_length)
 				asi := transfers.NewStreamingInterface(unsafe.Pointer(d.usbctx), unsafe.Pointer(d.handle), unsafe.Pointer(&ifaces[i]), ci.UVC)
 				for j := 0; j != len(vsbuf); j += int(vsbuf[j]) {
 					block := vsbuf[j : j+int(vsbuf[j])]

@@ -126,7 +126,7 @@ func getEndpointMaxPacketSize(ctx *C.struct_libusb_context, endpoint C.struct_li
 // UVC spec 1.5, section 2.4.3: A typical use of alternate settings is to provide a way to change the bandwidth requirements an active
 // isochronous pipe imposes on the USB.
 func findIsochronousAltSetting(ctx *C.struct_libusb_context, iface *C.struct_libusb_interface, endpointAddress C.uchar, payloadSize uint32) (*C.struct_libusb_interface_descriptor, uint32, error) {
-	altsettings := (*[1 << 30]C.struct_libusb_interface_descriptor)(unsafe.Pointer(iface.altsetting))[:iface.num_altsetting]
+	altsettings := unsafe.Slice(iface.altsetting, iface.num_altsetting)
 	for i, altsetting := range altsettings {
 		if altsetting.bNumEndpoints == 0 {
 			// UVC spec 1.5, section 2.4.3: All devices that transfer isochronous video data must
@@ -137,7 +137,7 @@ func findIsochronousAltSetting(ctx *C.struct_libusb_context, iface *C.struct_lib
 			// alternate setting so we can't use it and should skip it.
 			continue
 		}
-		endpoints := (*[1 << 30]C.struct_libusb_endpoint_descriptor)(unsafe.Pointer(altsetting.endpoint))[:altsetting.bNumEndpoints]
+		endpoints := unsafe.Slice(altsetting.endpoint, altsetting.bNumEndpoints)
 
 		j, err := findAltEndpoint(endpoints, endpointAddress)
 		if err != nil {

@@ -105,9 +105,9 @@ func (d *LibAVCodecDecoder) ReadFrame() (image.Image, error) {
 	switch d.frame.format {
 	case C.AV_PIX_FMT_YUV420P, C.AV_PIX_FMT_YUV422P, C.AV_PIX_FMT_YUV444P, C.AV_PIX_FMT_YUV410P, C.AV_PIX_FMT_YUV411P, C.AV_PIX_FMT_YUVJ420P, C.AV_PIX_FMT_YUVJ422P, C.AV_PIX_FMT_YUVJ444P:
 		img := &image.YCbCr{
-			Y:       (*[1 << 30]uint8)(unsafe.Pointer(d.frame.data[0]))[:d.frame.height*d.frame.linesize[0]],
-			Cb:      (*[1 << 30]uint8)(unsafe.Pointer(d.frame.data[1]))[:d.frame.height*d.frame.linesize[1]],
-			Cr:      (*[1 << 30]uint8)(unsafe.Pointer(d.frame.data[2]))[:d.frame.height*d.frame.linesize[2]],
+			Y:       unsafe.Slice((*uint8)(d.frame.data[0]), d.frame.height*d.frame.linesize[0]),
+			Cb:      unsafe.Slice((*uint8)(d.frame.data[1]), d.frame.height*d.frame.linesize[1]),
+			Cr:      unsafe.Slice((*uint8)(d.frame.data[2]), d.frame.height*d.frame.linesize[2]),
 			Rect:    image.Rect(0, 0, int(d.frame.width), int(d.frame.height)),
 			YStride: int(d.frame.linesize[0]),
 			CStride: int(d.frame.linesize[1]),
@@ -127,25 +127,25 @@ func (d *LibAVCodecDecoder) ReadFrame() (image.Image, error) {
 		return img, nil
 	case C.AV_PIX_FMT_RGB24:
 		return &RGB{
-			Pix:    (*[1 << 30]uint8)(unsafe.Pointer(d.frame.data[0]))[:d.frame.height*d.frame.linesize[0]],
+			Pix:    unsafe.Slice((*uint8)(d.frame.data[0]), d.frame.height*d.frame.linesize[0]),
 			Stride: int(d.frame.linesize[0]),
 			Rect:   image.Rect(0, 0, int(d.frame.width), int(d.frame.height)),
 		}, nil
 	case C.AV_PIX_FMT_BGR24:
 		return &BGR{
-			Pix:    (*[1 << 30]uint8)(unsafe.Pointer(d.frame.data[0]))[:d.frame.height*d.frame.linesize[0]],
+			Pix:    unsafe.Slice((*uint8)(d.frame.data[0]), d.frame.height*d.frame.linesize[0]),
 			Stride: int(d.frame.linesize[0]),
 			Rect:   image.Rect(0, 0, int(d.frame.width), int(d.frame.height)),
 		}, nil
 	case C.AV_PIX_FMT_GRAY8:
 		return &image.Gray{
-			Pix:    (*[1 << 30]uint8)(unsafe.Pointer(d.frame.data[0]))[:d.frame.height*d.frame.linesize[0]],
+			Pix:    unsafe.Slice((*uint8)(d.frame.data[0]), d.frame.height*d.frame.linesize[0]),
 			Stride: int(d.frame.linesize[0]),
 			Rect:   image.Rect(0, 0, int(d.frame.width), int(d.frame.height)),
 		}, nil
 	case C.AV_PIX_FMT_GRAY16BE:
 		return &image.Gray16{
-			Pix:    (*[1 << 30]uint8)(unsafe.Pointer(d.frame.data[0]))[:d.frame.height*d.frame.linesize[0]],
+			Pix:    unsafe.Slice((*uint8)(d.frame.data[0]), d.frame.height*d.frame.linesize[0]),
 			Stride: int(d.frame.linesize[0]),
 			Rect:   image.Rect(0, 0, int(d.frame.width), int(d.frame.height)),
 		}, nil

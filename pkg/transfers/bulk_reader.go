@@ -81,7 +81,7 @@ func (r *BulkReader) Read(buf []byte) (int, error) {
 
 	activeTx := r.completedTxReqs[(r.head-r.size+len(r.completedTxReqs))%len(r.completedTxReqs)]
 	r.size--
-	n := copy(buf, (*[1 << 30]byte)(unsafe.Pointer(activeTx.buffer))[:activeTx.actual_length])
+	n := copy(buf, unsafe.Slice((*byte)(activeTx.buffer), activeTx.actual_length))
 	if ret := C.libusb_submit_transfer(activeTx); ret < 0 {
 		return 0, fmt.Errorf("libusb_submit_transfer failed: %s", C.GoString(C.libusb_error_name(ret)))
 	}
