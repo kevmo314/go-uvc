@@ -8,6 +8,10 @@ package uvc
 #include <stdlib.h>
 
 #define LIBUSB_OPTION_NO_DEVICE_DISCOVERY 2
+
+static inline int libusb_set_option_no_device_discovery(libusb_context *ctx) {
+    return libusb_set_option(ctx, LIBUSB_OPTION_NO_DEVICE_DISCOVERY, NULL);
+}
 */
 import "C"
 import (
@@ -19,7 +23,7 @@ func NewUVCDevice(fd uintptr) (*UVCDevice, error) {
 	dev := &UVCDevice{closed: &atomic.Bool{}}
 	// On Android, we need to set NO_DEVICE_DISCOVERY option BEFORE libusb_init
 	// since we already have a valid file descriptor from Android's UsbDeviceConnection
-	if ret := C.libusb_set_option(nil, C.LIBUSB_OPTION_NO_DEVICE_DISCOVERY, nil); ret < 0 {
+	if ret := C.libusb_set_option_no_device_discovery(nil); ret < 0 {
 		return nil, fmt.Errorf("libusb_set_option failed: %d", libusberror(ret))
 	}
 	if ret := C.libusb_init(&dev.usbctx); ret < 0 {
