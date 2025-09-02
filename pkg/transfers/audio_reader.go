@@ -120,7 +120,7 @@ func (ar *AudioReader) handleTransfer(transfer *C.struct_libusb_transfer) {
 		errorPackets := 0
 
 		// Access the iso_packet_desc array using the same method as UVC
-		descs := (*[1 << 30]C.struct_libusb_iso_packet_descriptor)(unsafe.Pointer(&transfer.iso_packet_desc[0]))[:transfer.num_iso_packets:transfer.num_iso_packets]
+		descs := (*[1 << 30]C.struct_libusb_iso_packet_descriptor)(unsafe.Pointer(uintptr(unsafe.Pointer(transfer)) + unsafe.Offsetof(transfer.iso_packet_desc)))[:transfer.num_iso_packets:transfer.num_iso_packets]
 
 		for i := 0; i < numPackets; i++ {
 			packet := descs[i]

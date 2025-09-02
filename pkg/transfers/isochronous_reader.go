@@ -91,7 +91,7 @@ func (r *IsochronousReader) Read(buf []byte) (int, error) {
 		}
 
 		activeTx := r.completedTxReqs[(r.head-r.size+len(r.completedTxReqs))%len(r.completedTxReqs)]
-		descs := (*[1 << 30]C.struct_libusb_iso_packet_descriptor)(unsafe.Pointer(&activeTx.iso_packet_desc[0]))[:activeTx.num_iso_packets:activeTx.num_iso_packets]
+		descs := (*[1 << 30]C.struct_libusb_iso_packet_descriptor)(unsafe.Pointer(uintptr(unsafe.Pointer(activeTx)) + unsafe.Offsetof(activeTx.iso_packet_desc)))[:activeTx.num_iso_packets:activeTx.num_iso_packets]
 		if r.index == len(descs) {
 			// this tx is done, get the next one.
 			r.size--
