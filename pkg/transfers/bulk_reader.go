@@ -10,9 +10,8 @@ void bulkReaderTransferCallback(struct libusb_transfer *transfer);
 import "C"
 import (
 	"fmt"
+	"runtime/cgo"
 	"unsafe"
-
-	"github.com/mattn/go-pointer"
 )
 
 type BulkReader struct {
@@ -22,11 +21,14 @@ type BulkReader struct {
 	// circular buffer of completed transfers
 	completedTxReqs []*C.struct_libusb_transfer
 	head, size      int
+
+	// store handles for cleanup
+	handles []cgo.Handle
 }
 
 //export bulkReaderTransferCallback
 func bulkReaderTransferCallback(transfer *C.struct_libusb_transfer) {
-	r := pointer.Restore(transfer.user_data).(*BulkReader)
+	r := cgo.Handle(transfer.user_data).Value().(*BulkReader)
 
 	r.completedTxReqs[r.head] = transfer
 	r.head = (r.head + 1) % len(r.completedTxReqs)
@@ -43,6 +45,9 @@ func (si *StreamingInterface) NewBulkReader(endpointAddress uint8, mtu uint32) (
 		ctx:    si.ctx,
 		txReqs: make([]*C.struct_libusb_transfer, 0, 100),
 	}
+	handle := cgo.NewHandle(r)
+	r.handles = []cgo.Handle{handle}
+
 	for i := 0; i < 100; i++ {
 		tx := C.libusb_alloc_transfer(0)
 		if tx == nil {
@@ -59,7 +64,7 @@ func (si *StreamingInterface) NewBulkReader(endpointAddress uint8, mtu uint32) (
 			(*C.uchar)(buf),
 			C.int(mtu),
 			(*[0]byte)(C.libusb_transfer_cb_fn(C.bulkReaderTransferCallback)),
-			pointer.Save(r),
+			unsafe.Pointer(handle),
 			0)
 		if ret := C.libusb_submit_transfer(tx); ret < 0 {
 			if i == 0 {
@@ -92,6 +97,9 @@ func (r *BulkReader) Close() error {
 	for _, t := range r.txReqs {
 		C.free(unsafe.Pointer(t.buffer))
 		C.libusb_free_transfer(t)
+	}
+	for _, h := range r.handles {
+		h.Delete()
 	}
 	return nil
 }

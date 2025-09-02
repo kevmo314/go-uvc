@@ -11,14 +11,13 @@ import "C"
 import (
 	"fmt"
 	"io"
+	"runtime/cgo"
 	"unsafe"
-
-	"github.com/mattn/go-pointer"
 )
 
 //export isochronousReaderTransferCallback
 func isochronousReaderTransferCallback(transfer *C.struct_libusb_transfer) {
-	r := pointer.Restore(transfer.user_data).(*IsochronousReader)
+	r := cgo.Handle(transfer.user_data).Value().(*IsochronousReader)
 
 	r.completedTxReqs[r.head] = transfer
 	r.head = (r.head + 1) % len(r.completedTxReqs)
@@ -38,12 +37,18 @@ type IsochronousReader struct {
 	completedTxReqs []*C.struct_libusb_transfer
 	head, size      int
 	index           int
+
+	// store handles for cleanup
+	handles []cgo.Handle
 }
 
 func (si *StreamingInterface) NewIsochronousReader(endpointAddress uint8, packets, packetSize uint32) (*IsochronousReader, error) {
 	r := &IsochronousReader{
 		ctx: si.ctx,
 	}
+	handle := cgo.NewHandle(r)
+	r.handles = []cgo.Handle{handle}
+
 	for i := 0; i < 100; i++ {
 		tx := C.libusb_alloc_transfer(C.int(packets))
 		if tx == nil {
@@ -61,7 +66,7 @@ func (si *StreamingInterface) NewIsochronousReader(endpointAddress uint8, packet
 			C.int(packets*packetSize),
 			C.int(packets),
 			(*[0]byte)(C.libusb_transfer_cb_fn(C.isochronousReaderTransferCallback)),
-			pointer.Save(r),
+			unsafe.Pointer(handle),
 			0)
 		C.libusb_set_iso_packet_lengths(tx, C.uint(packetSize))
 		if ret := C.libusb_submit_transfer(tx); ret < 0 {
@@ -117,6 +122,9 @@ func (r *IsochronousReader) Close() error {
 	for _, t := range r.txReqs {
 		C.free(unsafe.Pointer(t.buffer))
 		C.libusb_free_transfer(t)
+	}
+	for _, h := range r.handles {
+		h.Delete()
 	}
 	return nil
 }
