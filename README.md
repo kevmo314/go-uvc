@@ -17,6 +17,9 @@ The non-Go equivalent of this library is [libuvc](https://github.com/libuvc/libu
 - [x] Video decoding API
 - [ ] Camera controls
 - [ ] UAC Audio support
+	- [x] UAC1 support
+ 	- [x] Basic audio controls
+ 	- [ ] UAC2/3 support
 
 ## Demo
 
