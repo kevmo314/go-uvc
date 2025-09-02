@@ -14,9 +14,15 @@ import (
 #include <libusb-1.0/libusb.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stddef.h>
 
 // Forward declaration
 void audio_transfer_callback(struct libusb_transfer *transfer);
+
+// Helper to get iso_packet_desc pointer, works around flexible array member issues
+static inline struct libusb_iso_packet_descriptor* get_iso_packet_desc_audio(struct libusb_transfer *transfer) {
+    return (struct libusb_iso_packet_descriptor*)((char*)transfer + offsetof(struct libusb_transfer, iso_packet_desc));
+}
 
 static struct libusb_transfer* alloc_audio_transfer(int num_iso_packets) {
 	return libusb_alloc_transfer(num_iso_packets);
@@ -119,8 +125,9 @@ func (ar *AudioReader) handleTransfer(transfer *C.struct_libusb_transfer) {
 		emptyPackets := 0
 		errorPackets := 0
 
-		// Access the iso_packet_desc array using the same method as UVC
-		descs := (*[1 << 30]C.struct_libusb_iso_packet_descriptor)(unsafe.Pointer(uintptr(unsafe.Pointer(transfer)) + unsafe.Offsetof(transfer.iso_packet_desc)))[:transfer.num_iso_packets:transfer.num_iso_packets]
+		// Access the iso_packet_desc array using C helper function
+		descsPtr := C.get_iso_packet_desc_audio(transfer)
+		descs := (*[1 << 30]C.struct_libusb_iso_packet_descriptor)(unsafe.Pointer(descsPtr))[:transfer.num_iso_packets:transfer.num_iso_packets]
 
 		for i := 0; i < numPackets; i++ {
 			packet := descs[i]
