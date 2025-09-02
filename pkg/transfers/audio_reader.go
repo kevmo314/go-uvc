@@ -127,7 +127,7 @@ func (ar *AudioReader) handleTransfer(transfer *C.struct_libusb_transfer) {
 
 		// Access the iso_packet_desc array using C helper function
 		descsPtr := C.get_iso_packet_desc_audio(transfer)
-		descs := (*[1 << 30]C.struct_libusb_iso_packet_descriptor)(unsafe.Pointer(descsPtr))[:transfer.num_iso_packets:transfer.num_iso_packets]
+		descs := (*[1 << 16]C.struct_libusb_iso_packet_descriptor)(unsafe.Pointer(descsPtr))[:transfer.num_iso_packets:transfer.num_iso_packets]
 
 		for i := 0; i < numPackets; i++ {
 			packet := descs[i]
