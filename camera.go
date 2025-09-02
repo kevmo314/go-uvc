@@ -64,7 +64,7 @@ func (ct *CameraTerminal) Get(desc descriptors.CameraTerminalControlDescriptor) 
 	ifnum := ct.usb.altsetting.bInterfaceNumber
 
 	bufLen := 16
-	buf := C.malloc(C.ulong(bufLen))
+	buf := C.malloc(C.size_t(bufLen))
 	defer C.free(buf)
 
 	if ret := C.libusb_control_transfer(
