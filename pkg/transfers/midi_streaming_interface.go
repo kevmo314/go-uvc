@@ -56,7 +56,7 @@ func (msi *MIDIStreamingInterface) ParseDescriptor(block []byte) {
 			// Parse header
 		case 0x02: // MIDI_IN_JACK
 			msi.NumInJacks++
-		case 0x03: // MIDI_OUT_JACK  
+		case 0x03: // MIDI_OUT_JACK
 			msi.NumOutJacks++
 		case 0x04: // ELEMENT
 			// Parse element
@@ -82,7 +82,7 @@ func (msi *MIDIStreamingInterface) ParseEndpoint(endpointPtr unsafe.Pointer) {
 	// Basic parsing of endpoint descriptors
 	ep := (*C.struct_libusb_endpoint_descriptor)(endpointPtr)
 	address := uint8(ep.bEndpointAddress)
-	
+
 	// Check if it's an input or output endpoint
 	if address&0x80 != 0 {
 		// Input endpoint (device to host)
