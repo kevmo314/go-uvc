@@ -28,4 +28,3 @@ func NewUVCDevice(fd uintptr) (*UVCDevice, error) {
 
 	return dev, nil
 }
-

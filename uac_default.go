@@ -26,4 +26,3 @@ func NewUACDevice(fd uintptr) (*UACDevice, error) {
 	}
 	return dev, nil
 }
-
