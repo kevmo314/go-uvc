@@ -53,7 +53,7 @@ func main() {
 	for i, si := range info.StreamingInterfaces {
 		fmt.Printf("\nInterface %d: num=%d, alt=%d, endpoint=0x%02x\n",
 			i, si.InterfaceNumber(), si.AlternateSetting(), si.EndpointAddress)
-		
+
 		// Print format type and tag
 		formatTypeName := "Unknown"
 		switch si.FormatType {
@@ -64,7 +64,7 @@ func main() {
 		case 0x03:
 			formatTypeName = "Type III (Format Specific)"
 		}
-		
+
 		formatTagName := ""
 		switch si.FormatTag {
 		case 0x0001:
@@ -84,18 +84,18 @@ func main() {
 		default:
 			formatTagName = fmt.Sprintf("0x%04x", si.FormatTag)
 		}
-		
+
 		fmt.Printf("  Format: %s, Tag: %s\n", formatTypeName, formatTagName)
-		fmt.Printf("  Audio: %d channels, %d bits, subframe: %d bytes\n", 
+		fmt.Printf("  Audio: %d channels, %d bits, subframe: %d bytes\n",
 			si.NrChannels, si.BitResolution, si.SubframeSize)
 		fmt.Printf("  Sampling frequencies: %v Hz\n", si.SamplingFreqs)
-		
+
 		// Type II specific info
 		if si.FormatType == 0x02 {
-			fmt.Printf("  Max bitrate: %d kbps, Samples per frame: %d\n", 
+			fmt.Printf("  Max bitrate: %d kbps, Samples per frame: %d\n",
 				si.MaxBitRate, si.SamplesPerFrame)
 		}
-		
+
 		// Type III specific info
 		if si.FormatType == 0x03 && len(si.FormatSpecific) > 0 {
 			fmt.Printf("  Format specific data: %x\n", si.FormatSpecific)
@@ -105,7 +105,7 @@ func main() {
 	if len(info.StreamingInterfaces) == 0 {
 		log.Fatal("No audio streaming interfaces found")
 	}
-	
+
 	// Also check for MIDI interfaces
 	if len(info.MIDIInterfaces) > 0 {
 		fmt.Printf("\nFound %d MIDI streaming interfaces\n", len(info.MIDIInterfaces))
@@ -123,7 +123,7 @@ func main() {
 			}
 		}
 	}
-	
+
 	// If probe-only mode, exit after displaying info
 	if *probeOnly {
 		fmt.Println("\nProbe complete.")
