@@ -96,7 +96,7 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 	vpcc := &descriptors.VideoProbeCommitControl{}
 	size := 48
 
-	buf := C.malloc(C.ulong(size))
+	buf := C.malloc(C.size_t(size))
 	defer C.free(buf)
 
 	// get the bounds

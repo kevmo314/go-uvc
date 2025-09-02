@@ -49,13 +49,13 @@ type AudioStreamingInterface struct {
 	SamplingFreqs   []uint32
 	EndpointAddress uint8
 	MaxPacketSize   uint16
-	
+
 	// Format Type II specific (for MPEG, AAC, etc.)
 	MaxBitRate      uint16
 	SamplesPerFrame uint16
-	
+
 	// Format Type III specific
-	FormatSpecific  []byte
+	FormatSpecific []byte
 }
 
 func NewAudioStreamingInterface(ctxp, handlep, ifacep unsafe.Pointer, bcdADC uint16) *AudioStreamingInterface {
@@ -90,7 +90,7 @@ func (asi *AudioStreamingInterface) ParseDescriptor(block []byte) error {
 	case 0x02: // FORMAT_TYPE
 		if len(block) >= 4 {
 			asi.FormatType = block[3]
-			
+
 			switch asi.FormatType {
 			case 0x01: // FORMAT_TYPE_I (PCM, compressed)
 				if len(block) >= 8 {
@@ -123,7 +123,7 @@ func (asi *AudioStreamingInterface) ParseDescriptor(block []byte) error {
 						}
 					}
 				}
-				
+
 			case 0x02: // FORMAT_TYPE_II (MPEG, AC-3, etc.)
 				if len(block) >= 9 {
 					// MaxBitRate in kbps
@@ -131,7 +131,7 @@ func (asi *AudioStreamingInterface) ParseDescriptor(block []byte) error {
 					// SamplesPerFrame
 					asi.SamplesPerFrame = uint16(block[6]) | (uint16(block[7]) << 8)
 					samplingFreqType := block[8]
-					
+
 					// Parse sampling frequencies (same as Type I)
 					if samplingFreqType == 0 && len(block) >= 15 {
 						minFreq := uint32(block[9]) | (uint32(block[10]) << 8) | (uint32(block[11]) << 16)
@@ -151,19 +151,19 @@ func (asi *AudioStreamingInterface) ParseDescriptor(block []byte) error {
 						}
 					}
 				}
-				
+
 			case 0x03: // FORMAT_TYPE_III (Format specific)
 				if len(block) >= 6 {
 					asi.NrChannels = block[4]
 					asi.SubframeSize = block[5]
 					asi.BitResolution = block[6]
 					samplingFreqType := block[7]
-					
+
 					// Store format-specific data
 					if len(block) > 8 {
 						asi.FormatSpecific = block[8:]
 					}
-					
+
 					// Parse sampling frequencies
 					if samplingFreqType == 0 && len(block) >= 14 {
 						minFreq := uint32(block[8]) | (uint32(block[9]) << 8) | (uint32(block[10]) << 16)
