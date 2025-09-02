@@ -51,6 +51,11 @@ type AudioDeviceInfo struct {
 	configDesc          *C.struct_libusb_config_descriptor
 	ControlInterfaces   []*AudioControlInterface
 	StreamingInterfaces []*transfers.AudioStreamingInterface
+	MIDIInterfaces      []*transfers.MIDIStreamingInterface
+}
+
+func (info *AudioDeviceInfo) GetHandle() unsafe.Pointer {
+	return unsafe.Pointer(info.deviceHandle)
 }
 
 func (d *UACDevice) DeviceInfo() (*AudioDeviceInfo, error) {
@@ -96,51 +101,88 @@ func (d *UACDevice) DeviceInfo() (*AudioDeviceInfo, error) {
 		}
 	}
 
-	// Find and parse audio streaming interfaces
+	// Find and parse audio streaming and MIDI interfaces
 	for _, iface := range ifaces {
-		// UAC uses class 1 (Audio) and subclass 2 (Streaming)
-		if iface.altsetting.bInterfaceClass == 1 && iface.altsetting.bInterfaceSubClass == 2 {
-			// Check all alternate settings for this interface
-			for alt := 0; alt < int(iface.num_altsetting); alt++ {
-				altsetting := unsafe.Slice(iface.altsetting, iface.num_altsetting)[alt]
+		// Check for audio class
+		if iface.altsetting.bInterfaceClass == 1 {
+			// Check subclass
+			if iface.altsetting.bInterfaceSubClass == 2 {
+				// Audio Streaming interface
+				// Check all alternate settings for this interface
+				for alt := 0; alt < int(iface.num_altsetting); alt++ {
+					altsetting := unsafe.Slice(iface.altsetting, iface.num_altsetting)[alt]
 
-				// Skip settings with no endpoints (zero-bandwidth)
-				// Alternate setting 0 is typically zero-bandwidth, but let's check endpoints
-				if altsetting.bNumEndpoints == 0 {
-					continue
-				}
+					// Skip settings with no endpoints (zero-bandwidth)
+					// Alternate setting 0 is typically zero-bandwidth, but let's check endpoints
+					if altsetting.bNumEndpoints == 0 {
+						continue
+					}
 
-				// Create a temporary interface structure for this alternate setting
-				tempIface := C.struct_libusb_interface{
-					altsetting:     &altsetting,
-					num_altsetting: 1,
-				}
+					// Create a temporary interface structure for this alternate setting
+					tempIface := C.struct_libusb_interface{
+						altsetting:     &altsetting,
+						num_altsetting: 1,
+					}
 
-				streamingIface := transfers.NewAudioStreamingInterface(
-					unsafe.Pointer(d.usbctx),
-					unsafe.Pointer(d.handle),
-					unsafe.Pointer(&tempIface),
-					info.bcdADC,
-				)
+					streamingIface := transfers.NewAudioStreamingInterface(
+						unsafe.Pointer(d.usbctx),
+						unsafe.Pointer(d.handle),
+						unsafe.Pointer(&tempIface),
+						info.bcdADC,
+					)
 
-				// Parse streaming interface descriptors
-				asbuf := unsafe.Slice((*byte)(altsetting.extra), altsetting.extra_length)
-				for j := 0; j != len(asbuf); j += int(asbuf[j]) {
-					block := asbuf[j : j+int(asbuf[j])]
-					if len(block) >= 3 && block[1] == 0x24 {
-						// Parse audio streaming descriptors
-						streamingIface.ParseDescriptor(block)
+					// Parse streaming interface descriptors
+					asbuf := unsafe.Slice((*byte)(altsetting.extra), altsetting.extra_length)
+					for j := 0; j != len(asbuf); j += int(asbuf[j]) {
+						block := asbuf[j : j+int(asbuf[j])]
+						if len(block) >= 3 && block[1] == 0x24 {
+							// Parse audio streaming descriptors
+							streamingIface.ParseDescriptor(block)
+						}
+					}
+
+					// Parse endpoint descriptor if available
+					if altsetting.bNumEndpoints > 0 {
+						streamingIface.ParseEndpoint(unsafe.Pointer(altsetting.endpoint))
+					}
+
+					// Only add interfaces with valid audio data
+					if streamingIface.NrChannels > 0 && len(streamingIface.SamplingFreqs) > 0 {
+						info.StreamingInterfaces = append(info.StreamingInterfaces, streamingIface)
 					}
 				}
-
-				// Parse endpoint descriptor if available
-				if altsetting.bNumEndpoints > 0 {
-					streamingIface.ParseEndpoint(unsafe.Pointer(altsetting.endpoint))
+			} else if iface.altsetting.bInterfaceSubClass == 3 {
+				// MIDI Streaming interface
+				midiIface := transfers.NewMIDIStreamingInterface(
+					unsafe.Pointer(d.usbctx),
+					unsafe.Pointer(d.handle),
+					unsafe.Pointer(&iface),
+				)
+				
+				// Parse MIDI descriptors
+				midibuf := unsafe.Slice((*byte)(iface.altsetting.extra), iface.altsetting.extra_length)
+				for j := 0; j != len(midibuf); j += int(midibuf[j]) {
+					block := midibuf[j : j+int(midibuf[j])]
+					if len(block) >= 3 && block[1] == 0x24 {
+						// Parse MIDI streaming descriptors
+						midiIface.ParseDescriptor(block)
+					} else if len(block) >= 3 && block[1] == 0x25 {
+						// Parse class-specific endpoint descriptor
+						midiIface.ParseMIDIEndpoint(block)
+					}
 				}
-
-				// Only add interfaces with valid audio data
-				if streamingIface.NrChannels > 0 && len(streamingIface.SamplingFreqs) > 0 {
-					info.StreamingInterfaces = append(info.StreamingInterfaces, streamingIface)
+				
+				// Parse endpoints
+				if iface.altsetting.bNumEndpoints > 0 {
+					endpoints := unsafe.Slice(iface.altsetting.endpoint, iface.altsetting.bNumEndpoints)
+					for _, ep := range endpoints {
+						midiIface.ParseEndpoint(unsafe.Pointer(&ep))
+					}
+				}
+				
+				// Add MIDI interface if it has jacks
+				if midiIface.NumInJacks > 0 || midiIface.NumOutJacks > 0 {
+					info.MIDIInterfaces = append(info.MIDIInterfaces, midiIface)
 				}
 			}
 		}

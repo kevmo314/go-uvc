@@ -27,6 +27,8 @@ type AudioFormat struct {
 	Channels      int
 	SampleRate    uint32
 	BitsPerSample int
+	FormatType    uint8  // 1=Type I (PCM), 2=Type II (dynamic), 3=Type III (specific)
+	FormatTag     uint16 // Format tag (PCM=1, MPEG=0x1001, AC3=0x1002, etc.)
 }
 
 type AudioStreamingInterface struct {
@@ -40,12 +42,20 @@ type AudioStreamingInterface struct {
 	TerminalLink    uint8
 	Delay           uint8
 	FormatType      uint8
+	FormatTag       uint16 // Format tag from AS_GENERAL descriptor
 	NrChannels      uint8
 	SubframeSize    uint8
 	BitResolution   uint8
 	SamplingFreqs   []uint32
 	EndpointAddress uint8
 	MaxPacketSize   uint16
+	
+	// Format Type II specific (for MPEG, AAC, etc.)
+	MaxBitRate      uint16
+	SamplesPerFrame uint16
+	
+	// Format Type III specific
+	FormatSpecific  []byte
 }
 
 func NewAudioStreamingInterface(ctxp, handlep, ifacep unsafe.Pointer, bcdADC uint16) *AudioStreamingInterface {
@@ -75,37 +85,98 @@ func (asi *AudioStreamingInterface) ParseDescriptor(block []byte) error {
 			asi.TerminalLink = block[3]
 			asi.Delay = block[4]
 			// Format tag is at block[5:6] for UAC1
+			asi.FormatTag = uint16(block[5]) | (uint16(block[6]) << 8)
 		}
 	case 0x02: // FORMAT_TYPE
-		if len(block) >= 8 {
+		if len(block) >= 4 {
 			asi.FormatType = block[3]
-			if asi.FormatType == 0x01 { // FORMAT_TYPE_I
-				asi.NrChannels = block[4]
-				asi.SubframeSize = block[5]
-				asi.BitResolution = block[6]
-				samplingFreqType := block[7]
+			
+			switch asi.FormatType {
+			case 0x01: // FORMAT_TYPE_I (PCM, compressed)
+				if len(block) >= 8 {
+					asi.NrChannels = block[4]
+					asi.SubframeSize = block[5]
+					asi.BitResolution = block[6]
+					samplingFreqType := block[7]
 
-				// Parse sampling frequencies based on type
-				if samplingFreqType == 0 {
-					// Continuous sampling frequency range
-					if len(block) >= 14 {
-						minFreq := uint32(block[8]) | (uint32(block[9]) << 8) | (uint32(block[10]) << 16)
-						maxFreq := uint32(block[11]) | (uint32(block[12]) << 8) | (uint32(block[13]) << 16)
-						// Add common frequencies within range
-						commonFreqs := []uint32{8000, 16000, 24000, 32000, 44100, 48000}
+					// Parse sampling frequencies based on type
+					if samplingFreqType == 0 {
+						// Continuous sampling frequency range
+						if len(block) >= 14 {
+							minFreq := uint32(block[8]) | (uint32(block[9]) << 8) | (uint32(block[10]) << 16)
+							maxFreq := uint32(block[11]) | (uint32(block[12]) << 8) | (uint32(block[13]) << 16)
+							// Add common frequencies within range
+							commonFreqs := []uint32{8000, 16000, 24000, 32000, 44100, 48000, 96000, 192000}
+							for _, freq := range commonFreqs {
+								if freq >= minFreq && freq <= maxFreq {
+									asi.SamplingFreqs = append(asi.SamplingFreqs, freq)
+								}
+							}
+						}
+					} else {
+						// Discrete sampling frequencies
+						for i := uint8(0); i < samplingFreqType && 8+i*3 <= uint8(len(block)); i++ {
+							freq := uint32(block[8+i*3]) |
+								(uint32(block[9+i*3]) << 8) |
+								(uint32(block[10+i*3]) << 16)
+							asi.SamplingFreqs = append(asi.SamplingFreqs, freq)
+						}
+					}
+				}
+				
+			case 0x02: // FORMAT_TYPE_II (MPEG, AC-3, etc.)
+				if len(block) >= 9 {
+					// MaxBitRate in kbps
+					asi.MaxBitRate = uint16(block[4]) | (uint16(block[5]) << 8)
+					// SamplesPerFrame
+					asi.SamplesPerFrame = uint16(block[6]) | (uint16(block[7]) << 8)
+					samplingFreqType := block[8]
+					
+					// Parse sampling frequencies (same as Type I)
+					if samplingFreqType == 0 && len(block) >= 15 {
+						minFreq := uint32(block[9]) | (uint32(block[10]) << 8) | (uint32(block[11]) << 16)
+						maxFreq := uint32(block[12]) | (uint32(block[13]) << 8) | (uint32(block[14]) << 16)
+						commonFreqs := []uint32{32000, 44100, 48000}
 						for _, freq := range commonFreqs {
 							if freq >= minFreq && freq <= maxFreq {
 								asi.SamplingFreqs = append(asi.SamplingFreqs, freq)
 							}
 						}
+					} else {
+						for i := uint8(0); i < samplingFreqType && 9+i*3 <= uint8(len(block)); i++ {
+							freq := uint32(block[9+i*3]) |
+								(uint32(block[10+i*3]) << 8) |
+								(uint32(block[11+i*3]) << 16)
+							asi.SamplingFreqs = append(asi.SamplingFreqs, freq)
+						}
 					}
-				} else {
-					// Discrete sampling frequencies
-					for i := uint8(0); i < samplingFreqType && 8+i*3 <= uint8(len(block)); i++ {
-						freq := uint32(block[8+i*3]) |
-							(uint32(block[9+i*3]) << 8) |
-							(uint32(block[10+i*3]) << 16)
-						asi.SamplingFreqs = append(asi.SamplingFreqs, freq)
+				}
+				
+			case 0x03: // FORMAT_TYPE_III (Format specific)
+				if len(block) >= 6 {
+					asi.NrChannels = block[4]
+					asi.SubframeSize = block[5]
+					asi.BitResolution = block[6]
+					samplingFreqType := block[7]
+					
+					// Store format-specific data
+					if len(block) > 8 {
+						asi.FormatSpecific = block[8:]
+					}
+					
+					// Parse sampling frequencies
+					if samplingFreqType == 0 && len(block) >= 14 {
+						minFreq := uint32(block[8]) | (uint32(block[9]) << 8) | (uint32(block[10]) << 16)
+						maxFreq := uint32(block[11]) | (uint32(block[12]) << 8) | (uint32(block[13]) << 16)
+						// For Type III, use the range as-is
+						asi.SamplingFreqs = []uint32{minFreq, maxFreq}
+					} else {
+						for i := uint8(0); i < samplingFreqType && 8+i*3 <= uint8(len(block)); i++ {
+							freq := uint32(block[8+i*3]) |
+								(uint32(block[9+i*3]) << 8) |
+								(uint32(block[10+i*3]) << 16)
+							asi.SamplingFreqs = append(asi.SamplingFreqs, freq)
+						}
 					}
 				}
 			}
@@ -187,6 +258,8 @@ func (asi *AudioStreamingInterface) GetActualAudioFormat() (AudioFormat, error) 
 		Channels:      int(asi.NrChannels),    // Default from descriptors
 		BitsPerSample: int(asi.BitResolution), // Default from descriptors
 		SampleRate:    asi.SamplingFreqs[0],   // Default from descriptors
+		FormatType:    asi.FormatType,         // From descriptor
+		FormatTag:     asi.FormatTag,          // From descriptor
 	}
 
 	// Get actual sampling frequency
