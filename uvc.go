@@ -8,7 +8,6 @@ package uvc
 import "C"
 import (
 	"fmt"
-	"sync/atomic"
 	"unsafe"
 
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
@@ -19,7 +18,6 @@ type UVCDevice struct {
 	usbctx *C.libusb_context
 	handle *C.libusb_device_handle
 	device *C.libusb_device
-	closed *atomic.Bool
 }
 
 func (d *UVCDevice) IsTISCamera() (bool, error) {
@@ -28,11 +26,6 @@ func (d *UVCDevice) IsTISCamera() (bool, error) {
 		return false, fmt.Errorf("libusb_get_device_descriptor failed: %d", libusberror(ret))
 	}
 	return desc.idVendor == 0x199e && (desc.idProduct == 0x8101 || desc.idProduct == 0x8102), nil
-}
-
-func (d *UVCDevice) Close() error {
-	d.closed.Store(true)
-	return nil
 }
 
 type ControlInterface struct {

@@ -10,11 +10,10 @@ package uvc
 import "C"
 import (
 	"fmt"
-	"sync/atomic"
 )
 
 func NewUVCDevice(fd uintptr) (*UVCDevice, error) {
-	dev := &UVCDevice{closed: &atomic.Bool{}}
+	dev := &UVCDevice{}
 	if ret := C.libusb_init(&dev.usbctx); ret < 0 {
 		return nil, fmt.Errorf("libusb_init_context failed: %d", libusberror(ret))
 	}
