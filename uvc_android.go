@@ -16,11 +16,10 @@ static inline int libusb_set_option_no_device_discovery(libusb_context *ctx) {
 import "C"
 import (
 	"fmt"
-	"sync/atomic"
 )
 
 func NewUVCDevice(fd uintptr) (*UVCDevice, error) {
-	dev := &UVCDevice{closed: &atomic.Bool{}}
+	dev := &UVCDevice{}
 	// On Android, we need to set NO_DEVICE_DISCOVERY option BEFORE libusb_init
 	// since we already have a valid file descriptor from Android's UsbDeviceConnection
 	if ret := C.libusb_set_option_no_device_discovery(nil); ret < 0 {
