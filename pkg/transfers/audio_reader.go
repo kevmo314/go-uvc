@@ -12,9 +12,15 @@ import (
 #include <libusb-1.0/libusb.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stddef.h>
 
 // Forward declaration
 void audio_transfer_callback(struct libusb_transfer *transfer);
+
+// Helper to get iso_packet_desc pointer, works around flexible array member issues
+static inline struct libusb_iso_packet_descriptor* get_iso_packet_desc_audio(struct libusb_transfer *transfer) {
+    return (struct libusb_iso_packet_descriptor*)((char*)transfer + offsetof(struct libusb_transfer, iso_packet_desc));
+}
 
 static struct libusb_transfer* alloc_audio_transfer(int num_iso_packets) {
 	return libusb_alloc_transfer(num_iso_packets);

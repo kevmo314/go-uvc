@@ -53,7 +53,7 @@ func (si *StreamingInterface) NewBulkReader(endpointAddress uint8, mtu uint32) (
 		if tx == nil {
 			return nil, fmt.Errorf("libusb_alloc_transfer failed")
 		}
-		buf := C.malloc(C.ulong(mtu))
+		buf := C.malloc(C.size_t(mtu))
 		if buf == nil {
 			return nil, fmt.Errorf("malloc failed")
 		}

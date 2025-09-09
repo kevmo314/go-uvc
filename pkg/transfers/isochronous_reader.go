@@ -4,8 +4,15 @@ package transfers
 #cgo LDFLAGS: -lusb-1.0
 #include <libusb-1.0/libusb.h>
 #include <stdlib.h>
+#include <stddef.h>
 
 void isochronousReaderTransferCallback(struct libusb_transfer *transfer);
+
+// Helper to get iso_packet_desc pointer, works around flexible array member issues
+static inline struct libusb_iso_packet_descriptor* get_iso_packet_desc(struct libusb_transfer *transfer) {
+    // The iso_packet_desc array starts immediately after the fixed part of the struct
+    return (struct libusb_iso_packet_descriptor*)((char*)transfer + offsetof(struct libusb_transfer, iso_packet_desc));
+}
 */
 import "C"
 import (
@@ -54,7 +61,7 @@ func (si *StreamingInterface) NewIsochronousReader(endpointAddress uint8, packet
 		if tx == nil {
 			return nil, fmt.Errorf("libusb_alloc_transfer failed")
 		}
-		buf := C.malloc(C.ulong(packets * packetSize))
+		buf := C.malloc(C.size_t(packets * packetSize))
 		if buf == nil {
 			return nil, fmt.Errorf("malloc failed")
 		}
@@ -91,7 +98,9 @@ func (r *IsochronousReader) Read(buf []byte) (int, error) {
 		}
 
 		activeTx := r.completedTxReqs[(r.head-r.size+len(r.completedTxReqs))%len(r.completedTxReqs)]
-		descs := unsafe.Slice(unsafe.SliceData(activeTx.iso_packet_desc[:]), activeTx.num_iso_packets)
+		// Access iso_packet_desc array using C helper function
+		descsPtr := C.get_iso_packet_desc(activeTx)
+		descs := (*[1 << 16]C.struct_libusb_iso_packet_descriptor)(unsafe.Pointer(descsPtr))[:activeTx.num_iso_packets:activeTx.num_iso_packets]
 		if r.index == len(descs) {
 			// this tx is done, get the next one.
 			r.size--

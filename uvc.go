@@ -22,22 +22,6 @@ type UVCDevice struct {
 	closed *atomic.Bool
 }
 
-func NewUVCDevice(fd uintptr) (*UVCDevice, error) {
-	dev := &UVCDevice{closed: &atomic.Bool{}}
-	if ret := C.libusb_init(&dev.usbctx); ret < 0 {
-		return nil, fmt.Errorf("libusb_init_context failed: %d", libusberror(ret))
-	}
-	if ret := C.libusb_wrap_sys_device(dev.usbctx, C.intptr_t(fd), &dev.handle); ret < 0 {
-		return nil, fmt.Errorf("libusb_wrap_sys_device failed: %d", libusberror(ret))
-	}
-	if dev.device = C.libusb_get_device(dev.handle); dev.device == nil {
-		return nil, fmt.Errorf("libusb_get_device failed")
-	}
-	// TODO: libuvc appears to check if the interrupt endpoint is readable, is that necessary?
-
-	return dev, nil
-}
-
 func (d *UVCDevice) IsTISCamera() (bool, error) {
 	var desc C.struct_libusb_device_descriptor
 	if ret := C.libusb_get_device_descriptor(d.device, &desc); ret < 0 {

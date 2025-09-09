@@ -243,3 +243,8 @@ func getMIDIMessageLength(cin uint8) int {
 		return 0
 	}
 }
+
+// AlternateSetting returns the alternate setting number
+func (msi *MIDIStreamingInterface) AlternateSetting() uint8 {
+	return uint8(msi.iface.altsetting.bAlternateSetting)
+}
