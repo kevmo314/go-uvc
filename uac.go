@@ -158,7 +158,7 @@ func (d *UACDevice) DeviceInfo() (*AudioDeviceInfo, error) {
 					unsafe.Pointer(d.handle),
 					unsafe.Pointer(&iface),
 				)
-				
+
 				// Parse MIDI descriptors
 				midibuf := unsafe.Slice((*byte)(iface.altsetting.extra), iface.altsetting.extra_length)
 				for j := 0; j != len(midibuf); j += int(midibuf[j]) {
@@ -171,7 +171,7 @@ func (d *UACDevice) DeviceInfo() (*AudioDeviceInfo, error) {
 						midiIface.ParseMIDIEndpoint(block)
 					}
 				}
-				
+
 				// Parse endpoints
 				if iface.altsetting.bNumEndpoints > 0 {
 					endpoints := unsafe.Slice(iface.altsetting.endpoint, iface.altsetting.bNumEndpoints)
@@ -179,7 +179,7 @@ func (d *UACDevice) DeviceInfo() (*AudioDeviceInfo, error) {
 						midiIface.ParseEndpoint(unsafe.Pointer(&ep))
 					}
 				}
-				
+
 				// Add MIDI interface if it has jacks
 				if midiIface.NumInJacks > 0 || midiIface.NumOutJacks > 0 {
 					info.MIDIInterfaces = append(info.MIDIInterfaces, midiIface)

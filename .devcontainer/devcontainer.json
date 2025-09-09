@@ -1,0 +1,67 @@
+{
+  "name": "Go UVC Development",
+  "dockerFile": "../Dockerfile",
+  "target": "builder",
+  
+  // USB device passthrough configuration
+  "runArgs": [
+    "--privileged",
+    "--device=/dev/bus/usb:/dev/bus/usb",
+    "-v", "/dev/bus/usb:/dev/bus/usb"
+  ],
+  
+  // Mount the entire USB bus
+  "mounts": [
+    "source=/dev/bus/usb,target=/dev/bus/usb,type=bind"
+  ],
+  
+  // Container capabilities for USB access
+  "containerEnv": {
+    "USBDEVFS_DISABLE_USBFS": "1"
+  },
+  
+  // VS Code extensions for Go development
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "ms-vscode.cpptools",
+        "ms-azuretools.vscode-docker"
+      ],
+      "settings": {
+        "go.toolsManagement.checkForUpdates": "local",
+        "go.useLanguageServer": true,
+        "go.gopath": "/go",
+        "go.goroot": "/usr/local/go"
+      }
+    }
+  },
+  
+  // Features to install
+  "features": {
+    "ghcr.io/devcontainers/features/go:1": {
+      "version": "1.22.2"
+    },
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "configureZshAsDefaultShell": true,
+      "username": "vscode",
+      "userUid": "1000",
+      "userGid": "1000",
+      "upgradePackages": true
+    }
+  },
+  
+  // Post create command to setup permissions
+  "postCreateCommand": "sudo chmod -R 777 /dev/bus/usb || true",
+  
+  // Run as root to access USB devices
+  "remoteUser": "root",
+  
+  // Forward any needed ports
+  "forwardPorts": [],
+  
+  // Comment to use default shell
+  "workspaceFolder": "/workspace",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind"
+}

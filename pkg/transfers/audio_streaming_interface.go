@@ -49,13 +49,13 @@ type AudioStreamingInterface struct {
 	SamplingFreqs   []uint32
 	EndpointAddress uint8
 	MaxPacketSize   uint16
-	
+
 	// Format Type II specific (for MPEG, AAC, etc.)
 	MaxBitRate      uint16
 	SamplesPerFrame uint16
-	
+
 	// Format Type III specific
-	FormatSpecific  []byte
+	FormatSpecific []byte
 }
 
 func NewAudioStreamingInterface(ctxp, handlep, ifacep unsafe.Pointer, bcdADC uint16) *AudioStreamingInterface {
@@ -90,7 +90,7 @@ func (asi *AudioStreamingInterface) ParseDescriptor(block []byte) error {
 	case 0x02: // FORMAT_TYPE
 		if len(block) >= 4 {
 			asi.FormatType = block[3]
-			
+
 			switch asi.FormatType {
 			case 0x01: // FORMAT_TYPE_I (PCM, compressed)
 				if len(block) >= 8 {
@@ -123,7 +123,7 @@ func (asi *AudioStreamingInterface) ParseDescriptor(block []byte) error {
 						}
 					}
 				}
-				
+
 			case 0x02: // FORMAT_TYPE_II (MPEG, AC-3, etc.)
 				if len(block) >= 9 {
 					// MaxBitRate in kbps
@@ -131,7 +131,7 @@ func (asi *AudioStreamingInterface) ParseDescriptor(block []byte) error {
 					// SamplesPerFrame
 					asi.SamplesPerFrame = uint16(block[6]) | (uint16(block[7]) << 8)
 					samplingFreqType := block[8]
-					
+
 					// Parse sampling frequencies (same as Type I)
 					if samplingFreqType == 0 && len(block) >= 15 {
 						minFreq := uint32(block[9]) | (uint32(block[10]) << 8) | (uint32(block[11]) << 16)
@@ -151,19 +151,19 @@ func (asi *AudioStreamingInterface) ParseDescriptor(block []byte) error {
 						}
 					}
 				}
-				
+
 			case 0x03: // FORMAT_TYPE_III (Format specific)
-				if len(block) >= 6 {
+				if len(block) >= 8 {
 					asi.NrChannels = block[4]
 					asi.SubframeSize = block[5]
 					asi.BitResolution = block[6]
 					samplingFreqType := block[7]
-					
+
 					// Store format-specific data
 					if len(block) > 8 {
 						asi.FormatSpecific = block[8:]
 					}
-					
+
 					// Parse sampling frequencies
 					if samplingFreqType == 0 && len(block) >= 14 {
 						minFreq := uint32(block[8]) | (uint32(block[9]) << 8) | (uint32(block[10]) << 16)
@@ -280,12 +280,12 @@ func (asi *AudioStreamingInterface) ClaimAudioReader(samplingFreq uint32) (*Audi
 	ifnum := asi.iface.altsetting.bInterfaceNumber
 	altSetting := asi.iface.altsetting.bAlternateSetting
 
-	fmt.Printf("Claiming interface %d, setting alternate setting %d\n", ifnum, altSetting)
+	// fmt.Printf("Claiming interface %d, setting alternate setting %d\n", ifnum, altSetting)
 
 	// Detach kernel driver if attached
 	ret := C.libusb_detach_kernel_driver(asi.handle, C.int(ifnum))
 	if ret < 0 && ret != -C.LIBUSB_ERROR_NOT_FOUND && ret != -C.LIBUSB_ERROR_NOT_SUPPORTED {
-		fmt.Printf("Warning: Could not detach kernel driver: %s\n", C.GoString(C.libusb_error_name(ret)))
+		// fmt.Printf("Warning: Could not detach kernel driver: %s\n", C.GoString(C.libusb_error_name(ret)))
 	}
 
 	// Claim the interface
@@ -306,7 +306,7 @@ func (asi *AudioStreamingInterface) ClaimAudioReader(samplingFreq uint32) (*Audi
 		freqData[1] = byte((samplingFreq >> 8) & 0xFF)
 		freqData[2] = byte((samplingFreq >> 16) & 0xFF)
 
-		fmt.Printf("Setting sampling frequency to %d Hz BEFORE alternate setting\n", samplingFreq)
+		// fmt.Printf("Setting sampling frequency to %d Hz BEFORE alternate setting\n", samplingFreq)
 
 		// Try to set on the interface while in alt 0
 		ret := C.libusb_control_transfer(
@@ -320,7 +320,7 @@ func (asi *AudioStreamingInterface) ClaimAudioReader(samplingFreq uint32) (*Audi
 			1000,
 		)
 		if ret >= 0 {
-			fmt.Printf("Pre-set sampling frequency to %d Hz\n", samplingFreq)
+			// fmt.Printf("Pre-set sampling frequency to %d Hz\n", samplingFreq)
 		}
 	}
 
@@ -330,7 +330,7 @@ func (asi *AudioStreamingInterface) ClaimAudioReader(samplingFreq uint32) (*Audi
 		return nil, fmt.Errorf("libusb_set_interface_alt_setting failed: %s", C.GoString(C.libusb_error_name(ret)))
 	}
 
-	fmt.Printf("Successfully set interface %d to alternate setting %d\n", ifnum, altSetting)
+	// fmt.Printf("Successfully set interface %d to alternate setting %d\n", ifnum, altSetting)
 
 	// Clear any halt condition on the endpoint
 	C.libusb_clear_halt(asi.handle, C.uchar(asi.EndpointAddress))
@@ -346,8 +346,8 @@ func (asi *AudioStreamingInterface) ClaimAudioReader(samplingFreq uint32) (*Audi
 		freqData[1] = byte((samplingFreq >> 8) & 0xFF)
 		freqData[2] = byte((samplingFreq >> 16) & 0xFF)
 
-		fmt.Printf("Setting sampling frequency to %d Hz (bytes: %02x %02x %02x)\n",
-			samplingFreq, freqData[0], freqData[1], freqData[2])
+		// fmt.Printf("Setting sampling frequency to %d Hz (bytes: %02x %02x %02x)\n",
+		//	samplingFreq, freqData[0], freqData[1], freqData[2])
 
 		// Try different approaches for setting sampling frequency
 		// Method 1: To the endpoint directly (UAC1 standard)
@@ -362,7 +362,7 @@ func (asi *AudioStreamingInterface) ClaimAudioReader(samplingFreq uint32) (*Audi
 			1000,
 		)
 		if ret < 0 {
-			fmt.Printf("Method 1 (endpoint) failed: %s\n", C.GoString(C.libusb_error_name(ret)))
+			// fmt.Printf("Method 1 (endpoint) failed: %s\n", C.GoString(C.libusb_error_name(ret)))
 
 			// Method 2: Try interface-based control
 			ret = C.libusb_control_transfer(
@@ -376,12 +376,12 @@ func (asi *AudioStreamingInterface) ClaimAudioReader(samplingFreq uint32) (*Audi
 				1000,
 			)
 			if ret < 0 {
-				fmt.Printf("Method 2 (interface) failed: %s\n", C.GoString(C.libusb_error_name(ret)))
+				// fmt.Printf("Method 2 (interface) failed: %s\n", C.GoString(C.libusb_error_name(ret)))
 			} else {
-				fmt.Printf("Set sampling frequency via interface to %d Hz\n", samplingFreq)
+				// fmt.Printf("Set sampling frequency via interface to %d Hz\n", samplingFreq)
 			}
 		} else {
-			fmt.Printf("Set sampling frequency via endpoint to %d Hz\n", samplingFreq)
+			// fmt.Printf("Set sampling frequency via endpoint to %d Hz\n", samplingFreq)
 		}
 
 		// Verify the frequency was set by reading it back
@@ -398,12 +398,12 @@ func (asi *AudioStreamingInterface) ClaimAudioReader(samplingFreq uint32) (*Audi
 		)
 		if ret >= 0 {
 			actualFreq := uint32(readFreqData[0]) | (uint32(readFreqData[1]) << 8) | (uint32(readFreqData[2]) << 16)
-			fmt.Printf("Device reports actual sampling frequency: %d Hz\n", actualFreq)
+			// fmt.Printf("Device reports actual sampling frequency: %d Hz\n", actualFreq)
 			if actualFreq != samplingFreq {
-				fmt.Printf("WARNING: Device is using %d Hz instead of requested %d Hz!\n", actualFreq, samplingFreq)
+				// fmt.Printf("WARNING: Device is using %d Hz instead of requested %d Hz!\n", actualFreq, samplingFreq)
 			}
 		}
 	}
 
-	return NewAudioReader(asi), nil
+	return NewAudioReader(asi)
 }
