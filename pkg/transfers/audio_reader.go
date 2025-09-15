@@ -195,8 +195,9 @@ func (ar *AudioReader) ReadAudio(buf []byte) (int, error) {
 		// Get the oldest completed transfer
 		activeTx := ar.completedTxReqs[(ar.head-ar.size+len(ar.completedTxReqs))%len(ar.completedTxReqs)]
 
-		// Access ISO packet descriptors
-		descs := unsafe.Slice(unsafe.SliceData(activeTx.iso_packet_desc[:]), activeTx.num_iso_packets)
+		// Access ISO packet descriptors using C helper function
+		descsPtr := C.get_iso_packet_desc_audio(activeTx)
+		descs := (*[1 << 16]C.struct_libusb_iso_packet_descriptor)(unsafe.Pointer(descsPtr))[:activeTx.num_iso_packets:activeTx.num_iso_packets]
 
 		// If we've processed all packets in this transfer, resubmit it
 		if ar.index >= len(descs) {
