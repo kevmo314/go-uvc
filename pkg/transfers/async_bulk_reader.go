@@ -104,9 +104,14 @@ func (r *AsyncBulkReader) Read(buf []byte) (int, error) {
 			return 0, fmt.Errorf("async bulk read failed: %w", err)
 		}
 
+		// Check buffer has enough space
+		if len(buf)-written < len(data) {
+			return 0, fmt.Errorf("buffer too small: need %d bytes, have %d", len(data), len(buf)-written)
+		}
+
 		// Copy BEFORE resubmitting to avoid race with kernel
-		n := copy(buf[written:], data)
-		written += n
+		copy(buf[written:], data)
+		written += len(data)
 
 		// Now safe to resubmit
 		t.Submit()
