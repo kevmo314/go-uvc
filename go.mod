@@ -11,6 +11,7 @@ require (
 	github.com/rivo/tview v0.0.0-20240505185119-ed116790de0f
 	github.com/veandco/go-sdl2 v0.4.40
 	golang.org/x/image v0.16.0
+	golang.org/x/sys v0.40.0
 )
 
 require (
@@ -23,7 +24,6 @@ require (
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	golang.org/x/sync v0.7.0 // indirect
-	golang.org/x/sys v0.20.0 // indirect
 	golang.org/x/term v0.17.0 // indirect
 	golang.org/x/text v0.15.0 // indirect
 )
