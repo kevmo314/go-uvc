@@ -1,38 +1,32 @@
 package uvc
 
-/*
-#cgo LDFLAGS: -lusb-1.0
-#include <libusb-1.0/libusb.h>
-#include <stdlib.h>
-*/
-import "C"
 import (
 	"fmt"
 	"sync/atomic"
-	"unsafe"
+	"time"
 
+	usb "github.com/kevmo314/go-usb"
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
 	"github.com/kevmo314/go-uvc/pkg/transfers"
 )
 
 type UVCDevice struct {
-	usbctx *C.libusb_context
-	handle *C.libusb_device_handle
-	device *C.libusb_device
+	handle *usb.DeviceHandle
 	closed *atomic.Bool
 }
 
+func (d *UVCDevice) Handle() *usb.DeviceHandle {
+	return d.handle
+}
+
 func (d *UVCDevice) IsTISCamera() (bool, error) {
-	var desc C.struct_libusb_device_descriptor
-	if ret := C.libusb_get_device_descriptor(d.device, &desc); ret < 0 {
-		return false, fmt.Errorf("libusb_get_device_descriptor failed: %d", libusberror(ret))
-	}
-	return desc.idVendor == 0x199e && (desc.idProduct == 0x8101 || desc.idProduct == 0x8102), nil
+	desc := d.handle.Descriptor()
+	return desc.VendorID == 0x199e && (desc.ProductID == 0x8101 || desc.ProductID == 0x8102), nil
 }
 
 func (d *UVCDevice) Close() error {
 	d.closed.Store(true)
-	return nil
+	return d.handle.Close()
 }
 
 type ControlInterface struct {
@@ -43,16 +37,16 @@ type ControlInterface struct {
 
 type DeviceInfo struct {
 	bcdUVC              uint16 // cached since it's used a lot
-	deviceHandle        *C.struct_libusb_device_handle
-	configDesc          *C.struct_libusb_config_descriptor
+	handle              *usb.DeviceHandle
+	configDesc          *usb.ConfigDescriptor
 	ControlInterfaces   []*ControlInterface
 	StreamingInterfaces []*transfers.StreamingInterface
 }
 
 func (d *UVCDevice) DeviceInfo() (*DeviceInfo, error) {
-	var configDesc *C.struct_libusb_config_descriptor
-	if ret := C.libusb_get_config_descriptor(d.device, 0, &configDesc); ret < 0 {
-		return nil, fmt.Errorf("libusb_get_active_config_descriptor failed: %d", libusberror(ret))
+	configDesc, err := d.handle.ConfigDescriptorByValue(0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get config descriptor: %w", err)
 	}
 
 	// scan control interfaces
@@ -60,25 +54,32 @@ func (d *UVCDevice) DeviceInfo() (*DeviceInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	ifaceIdx := -1
-	ifaces := unsafe.Slice(configDesc._interface, configDesc.bNumInterfaces)
-	for i, iface := range ifaces {
-		if isTISCamera && iface.altsetting.bInterfaceClass == 255 && iface.altsetting.bInterfaceSubClass == 1 {
-			ifaceIdx = i
+
+	var controlIfaceIdx int = -1
+	for i, iface := range configDesc.Interfaces {
+		if len(iface.AltSettings) == 0 {
+			continue
+		}
+		alt := iface.AltSettings[0]
+		if isTISCamera && alt.InterfaceClass == 255 && alt.InterfaceSubClass == 1 {
+			controlIfaceIdx = i
 			break
-		} else if !isTISCamera && iface.altsetting.bInterfaceClass == 14 && iface.altsetting.bInterfaceSubClass == 1 {
-			ifaceIdx = i
+		} else if !isTISCamera && alt.InterfaceClass == 14 && alt.InterfaceSubClass == 1 {
+			controlIfaceIdx = i
 			break
 		}
 	}
-	if ifaceIdx == -1 {
+	if controlIfaceIdx == -1 {
 		return nil, fmt.Errorf("control interface not found")
 	}
-	info := &DeviceInfo{deviceHandle: d.handle, configDesc: configDesc}
 
-	videoInterface := &ifaces[ifaceIdx]
+	info := &DeviceInfo{handle: d.handle, configDesc: configDesc}
 
-	vcbuf := unsafe.Slice((*byte)(videoInterface.altsetting.extra), videoInterface.altsetting.extra_length)
+	videoInterface := &configDesc.Interfaces[controlIfaceIdx]
+	if len(videoInterface.AltSettings) == 0 {
+		return nil, fmt.Errorf("no alt settings for control interface")
+	}
+	vcbuf := videoInterface.AltSettings[0].Extra
 
 	for i := 0; i != len(vcbuf); i += int(vcbuf[i]) {
 		block := vcbuf[i : i+int(vcbuf[i])]
@@ -93,8 +94,8 @@ func (d *UVCDevice) DeviceInfo() (*DeviceInfo, error) {
 		switch ci := ci.(type) {
 		case *descriptors.ProcessingUnitDescriptor:
 			processingUnit := &ProcessingUnit{
-				usb:            &ifaces[ifaceIdx],
-				deviceHandle:   d.handle,
+				handle:         d.handle,
+				ifaceNum:       videoInterface.AltSettings[0].InterfaceNumber,
 				UnitDescriptor: ci,
 			}
 			info.ControlInterfaces = append(info.ControlInterfaces, &ControlInterface{ProcessingUnit: processingUnit, Descriptor: ci})
@@ -107,8 +108,8 @@ func (d *UVCDevice) DeviceInfo() (*DeviceInfo, error) {
 			switch descriptor := it.(type) {
 			case *descriptors.CameraTerminalDescriptor:
 				camera := &CameraTerminal{
-					usb:              &ifaces[ifaceIdx],
-					deviceHandle:     d.handle,
+					handle:           d.handle,
+					ifaceNum:         videoInterface.AltSettings[0].InterfaceNumber,
 					CameraDescriptor: descriptor,
 				}
 				info.ControlInterfaces = append(info.ControlInterfaces, &ControlInterface{CameraTerminal: camera, Descriptor: descriptor})
@@ -116,11 +117,22 @@ func (d *UVCDevice) DeviceInfo() (*DeviceInfo, error) {
 		case *descriptors.HeaderDescriptor:
 			info.bcdUVC = ci.UVC
 			// pull the streaming interfaces too
-			for _, i := range ci.VideoStreamingInterfaceIndexes {
-				vsbuf := unsafe.Slice((*byte)(ifaces[i].altsetting.extra), ifaces[i].altsetting.extra_length)
-				asi := transfers.NewStreamingInterface(unsafe.Pointer(d.usbctx), unsafe.Pointer(d.handle), unsafe.Pointer(&ifaces[i]), ci.UVC)
+			for _, ifaceIdx := range ci.VideoStreamingInterfaceIndexes {
+				if int(ifaceIdx) >= len(configDesc.Interfaces) {
+					continue
+				}
+				streamIface := &configDesc.Interfaces[ifaceIdx]
+				if len(streamIface.AltSettings) == 0 {
+					continue
+				}
+				vsbuf := streamIface.AltSettings[0].Extra
+				asi := transfers.NewStreamingInterface(d.handle, streamIface, ci.UVC)
 				for j := 0; j != len(vsbuf); j += int(vsbuf[j]) {
 					block := vsbuf[j : j+int(vsbuf[j])]
+					// Only parse CS_INTERFACE (0x24) descriptors
+					if block[1] != 0x24 {
+						continue
+					}
 					si, err := descriptors.UnmarshalStreamingInterface(block)
 					if err != nil {
 						return nil, err
@@ -139,6 +151,9 @@ func (d *UVCDevice) DeviceInfo() (*DeviceInfo, error) {
 }
 
 func (d *DeviceInfo) Close() error {
-	C.libusb_free_config_descriptor(d.configDesc)
 	return nil
+}
+
+func (d *UVCDevice) ControlTransfer(requestType, request uint8, value, index uint16, data []byte, timeout time.Duration) (int, error) {
+	return d.handle.ControlTransfer(requestType, request, value, index, data, timeout)
 }

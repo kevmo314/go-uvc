@@ -1,14 +1,10 @@
 package transfers
 
-/*
-#cgo LDFLAGS: -lusb-1.0
-#include <libusb-1.0/libusb.h>
-#include <stdlib.h>
-*/
-import "C"
 import (
 	"fmt"
-	"unsafe"
+	"time"
+
+	usb "github.com/kevmo314/go-usb"
 )
 
 // MIDI Streaming subclass constants
@@ -29,9 +25,8 @@ const (
 )
 
 type MIDIStreamingInterface struct {
-	ctx    *C.libusb_context
-	handle *C.struct_libusb_device_handle
-	iface  *C.struct_libusb_interface
+	handle *usb.DeviceHandle
+	iface  *usb.Interface
 
 	// MIDI specific fields
 	NumInJacks  uint8
@@ -50,15 +45,15 @@ type MIDIJack struct {
 	StringIdx uint8 // String descriptor index
 }
 
-func NewMIDIStreamingInterface(ctxp, handlep, ifacep unsafe.Pointer) *MIDIStreamingInterface {
-	ctx := (*C.struct_libusb_context)(ctxp)
-	handle := (*C.struct_libusb_device_handle)(handlep)
-	iface := (*C.struct_libusb_interface)(ifacep)
-	return &MIDIStreamingInterface{ctx: ctx, handle: handle, iface: iface}
+func NewMIDIStreamingInterface(handle *usb.DeviceHandle, iface *usb.Interface) *MIDIStreamingInterface {
+	return &MIDIStreamingInterface{handle: handle, iface: iface}
 }
 
 func (msi *MIDIStreamingInterface) InterfaceNumber() uint8 {
-	return uint8(msi.iface.altsetting.bInterfaceNumber)
+	if len(msi.iface.AltSettings) == 0 {
+		return 0
+	}
+	return msi.iface.AltSettings[0].InterfaceNumber
 }
 
 func (msi *MIDIStreamingInterface) ParseDescriptor(block []byte) error {
@@ -106,9 +101,8 @@ func (msi *MIDIStreamingInterface) ParseDescriptor(block []byte) error {
 	return nil
 }
 
-func (msi *MIDIStreamingInterface) ParseEndpoint(epDesc unsafe.Pointer) {
-	ep := (*C.struct_libusb_endpoint_descriptor)(epDesc)
-	epAddr := uint8(ep.bEndpointAddress)
+func (msi *MIDIStreamingInterface) ParseEndpointFromUSB(ep *usb.Endpoint) {
+	epAddr := ep.EndpointAddr
 
 	// Check direction bit (bit 7)
 	if epAddr&0x80 != 0 {
@@ -141,18 +135,9 @@ func (msi *MIDIStreamingInterface) SendMIDIMessage(cableNum uint8, message []byt
 	packet[0] = (cableNum << 4) | getMIDICodeIndex(message)
 	copy(packet[1:], message)
 
-	var transferred C.int
-	ret := C.libusb_bulk_transfer(
-		msi.handle,
-		C.uchar(msi.EndpointOut),
-		(*C.uchar)(unsafe.Pointer(&packet[0])),
-		4,
-		&transferred,
-		1000,
-	)
-
-	if ret < 0 {
-		return fmt.Errorf("MIDI send failed: %s", C.GoString(C.libusb_error_name(ret)))
+	_, err := msi.handle.BulkTransfer(msi.EndpointOut, packet, time.Second)
+	if err != nil {
+		return fmt.Errorf("MIDI send failed: %w", err)
 	}
 
 	return nil
@@ -165,19 +150,10 @@ func (msi *MIDIStreamingInterface) ReadMIDIMessage() (cableNum uint8, message []
 	}
 
 	packet := make([]byte, 64) // Read up to 64 bytes
-	var transferred C.int
 
-	ret := C.libusb_bulk_transfer(
-		msi.handle,
-		C.uchar(msi.EndpointIn),
-		(*C.uchar)(unsafe.Pointer(&packet[0])),
-		64,
-		&transferred,
-		100, // 100ms timeout
-	)
-
-	if ret < 0 {
-		return 0, nil, fmt.Errorf("MIDI read failed: %s", C.GoString(C.libusb_error_name(ret)))
+	transferred, err := msi.handle.BulkTransfer(msi.EndpointIn, packet, 100*time.Millisecond)
+	if err != nil {
+		return 0, nil, fmt.Errorf("MIDI read failed: %w", err)
 	}
 
 	if transferred >= 4 {
@@ -246,5 +222,8 @@ func getMIDIMessageLength(cin uint8) int {
 
 // AlternateSetting returns the alternate setting number
 func (msi *MIDIStreamingInterface) AlternateSetting() uint8 {
-	return uint8(msi.iface.altsetting.bAlternateSetting)
+	if len(msi.iface.AltSettings) == 0 {
+		return 0
+	}
+	return msi.iface.AltSettings[0].AlternateSetting
 }

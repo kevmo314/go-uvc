@@ -1,30 +1,22 @@
 package uvc
 
-/*
-#cgo LDFLAGS: -lusb-1.0
-#include <libusb-1.0/libusb.h>
-#include <stdlib.h>
-*/
-import "C"
 import (
 	"fmt"
 	"sync/atomic"
-	"unsafe"
 
+	usb "github.com/kevmo314/go-usb"
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
 	"github.com/kevmo314/go-uvc/pkg/transfers"
 )
 
 type UACDevice struct {
-	usbctx *C.libusb_context
-	handle *C.libusb_device_handle
-	device *C.libusb_device
+	handle *usb.DeviceHandle
 	closed *atomic.Bool
 }
 
 func (d *UACDevice) Close() error {
 	d.closed.Store(true)
-	return nil
+	return d.handle.Close()
 }
 
 type AudioControlInterface struct {
@@ -33,29 +25,31 @@ type AudioControlInterface struct {
 
 type AudioDeviceInfo struct {
 	bcdADC              uint16
-	deviceHandle        *C.struct_libusb_device_handle
-	configDesc          *C.struct_libusb_config_descriptor
+	handle              *usb.DeviceHandle
+	configDesc          *usb.ConfigDescriptor
 	ControlInterfaces   []*AudioControlInterface
 	StreamingInterfaces []*transfers.AudioStreamingInterface
 	MIDIInterfaces      []*transfers.MIDIStreamingInterface
 }
 
-func (info *AudioDeviceInfo) GetHandle() unsafe.Pointer {
-	return unsafe.Pointer(info.deviceHandle)
+func (info *AudioDeviceInfo) GetHandle() *usb.DeviceHandle {
+	return info.handle
 }
 
 func (d *UACDevice) DeviceInfo() (*AudioDeviceInfo, error) {
-	var configDesc *C.struct_libusb_config_descriptor
-	if ret := C.libusb_get_config_descriptor(d.device, 0, &configDesc); ret < 0 {
-		return nil, fmt.Errorf("libusb_get_active_config_descriptor failed: %d", libusberror(ret))
+	configDesc, err := d.handle.ConfigDescriptorByValue(0)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get config descriptor: %w", err)
 	}
 
 	// scan audio control interfaces
 	ifaceIdx := -1
-	ifaces := unsafe.Slice(configDesc._interface, configDesc.bNumInterfaces)
-	for i, iface := range ifaces {
+	for i, iface := range configDesc.Interfaces {
+		if len(iface.AltSettings) == 0 {
+			continue
+		}
 		// UAC uses class 1 (Audio) and subclass 1 (Control)
-		if iface.altsetting.bInterfaceClass == 1 && iface.altsetting.bInterfaceSubClass == 1 {
+		if iface.AltSettings[0].InterfaceClass == 1 && iface.AltSettings[0].InterfaceSubClass == 1 {
 			ifaceIdx = i
 			break
 		}
@@ -63,10 +57,13 @@ func (d *UACDevice) DeviceInfo() (*AudioDeviceInfo, error) {
 	if ifaceIdx == -1 {
 		return nil, fmt.Errorf("audio control interface not found")
 	}
-	info := &AudioDeviceInfo{deviceHandle: d.handle, configDesc: configDesc}
+	info := &AudioDeviceInfo{handle: d.handle, configDesc: configDesc}
 
-	audioInterface := &ifaces[ifaceIdx]
-	acbuf := unsafe.Slice((*byte)(audioInterface.altsetting.extra), audioInterface.altsetting.extra_length)
+	audioInterface := &configDesc.Interfaces[ifaceIdx]
+	if len(audioInterface.AltSettings) == 0 {
+		return nil, fmt.Errorf("no alt settings for audio control interface")
+	}
+	acbuf := audioInterface.AltSettings[0].Extra
 
 	// Parse audio control interface descriptors
 	for i := 0; i != len(acbuf); i += int(acbuf[i]) {
@@ -88,37 +85,30 @@ func (d *UACDevice) DeviceInfo() (*AudioDeviceInfo, error) {
 	}
 
 	// Find and parse audio streaming and MIDI interfaces
-	for _, iface := range ifaces {
+	for _, iface := range configDesc.Interfaces {
+		if len(iface.AltSettings) == 0 {
+			continue
+		}
 		// Check for audio class
-		if iface.altsetting.bInterfaceClass == 1 {
+		if iface.AltSettings[0].InterfaceClass == 1 {
 			// Check subclass
-			if iface.altsetting.bInterfaceSubClass == 2 {
+			if iface.AltSettings[0].InterfaceSubClass == 2 {
 				// Audio Streaming interface
 				// Check all alternate settings for this interface
-				for alt := 0; alt < int(iface.num_altsetting); alt++ {
-					altsetting := unsafe.Slice(iface.altsetting, iface.num_altsetting)[alt]
-
+				for _, altsetting := range iface.AltSettings {
 					// Skip settings with no endpoints (zero-bandwidth)
-					// Alternate setting 0 is typically zero-bandwidth, but let's check endpoints
-					if altsetting.bNumEndpoints == 0 {
+					if altsetting.NumEndpoints == 0 {
 						continue
 					}
 
-					// Create a temporary interface structure for this alternate setting
-					tempIface := C.struct_libusb_interface{
-						altsetting:     &altsetting,
-						num_altsetting: 1,
-					}
-
 					streamingIface := transfers.NewAudioStreamingInterface(
-						unsafe.Pointer(d.usbctx),
-						unsafe.Pointer(d.handle),
-						unsafe.Pointer(&tempIface),
+						d.handle,
+						&iface,
 						info.bcdADC,
 					)
 
 					// Parse streaming interface descriptors
-					asbuf := unsafe.Slice((*byte)(altsetting.extra), altsetting.extra_length)
+					asbuf := altsetting.Extra
 					for j := 0; j != len(asbuf); j += int(asbuf[j]) {
 						block := asbuf[j : j+int(asbuf[j])]
 						if len(block) >= 3 && block[1] == 0x24 {
@@ -128,8 +118,8 @@ func (d *UACDevice) DeviceInfo() (*AudioDeviceInfo, error) {
 					}
 
 					// Parse endpoint descriptor if available
-					if altsetting.bNumEndpoints > 0 {
-						streamingIface.ParseEndpoint(unsafe.Pointer(altsetting.endpoint))
+					if len(altsetting.Endpoints) > 0 {
+						streamingIface.ParseEndpointFromUSB(&altsetting.Endpoints[0])
 					}
 
 					// Only add interfaces with valid audio data
@@ -137,16 +127,15 @@ func (d *UACDevice) DeviceInfo() (*AudioDeviceInfo, error) {
 						info.StreamingInterfaces = append(info.StreamingInterfaces, streamingIface)
 					}
 				}
-			} else if iface.altsetting.bInterfaceSubClass == 3 {
+			} else if iface.AltSettings[0].InterfaceSubClass == 3 {
 				// MIDI Streaming interface
 				midiIface := transfers.NewMIDIStreamingInterface(
-					unsafe.Pointer(d.usbctx),
-					unsafe.Pointer(d.handle),
-					unsafe.Pointer(&iface),
+					d.handle,
+					&iface,
 				)
 
 				// Parse MIDI descriptors
-				midibuf := unsafe.Slice((*byte)(iface.altsetting.extra), iface.altsetting.extra_length)
+				midibuf := iface.AltSettings[0].Extra
 				for j := 0; j != len(midibuf); j += int(midibuf[j]) {
 					block := midibuf[j : j+int(midibuf[j])]
 					if len(block) >= 3 && block[1] == 0x24 {
@@ -159,11 +148,8 @@ func (d *UACDevice) DeviceInfo() (*AudioDeviceInfo, error) {
 				}
 
 				// Parse endpoints
-				if iface.altsetting.bNumEndpoints > 0 {
-					endpoints := unsafe.Slice(iface.altsetting.endpoint, iface.altsetting.bNumEndpoints)
-					for _, ep := range endpoints {
-						midiIface.ParseEndpoint(unsafe.Pointer(&ep))
-					}
+				for _, ep := range iface.AltSettings[0].Endpoints {
+					midiIface.ParseEndpointFromUSB(&ep)
 				}
 
 				// Add MIDI interface if it has jacks

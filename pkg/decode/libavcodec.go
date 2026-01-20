@@ -24,6 +24,11 @@ type LibAVCodecDecoder struct {
 	ctx   *C.AVCodecContext
 	pkt   *C.AVPacket
 	frame *C.AVFrame
+
+	// H264 SPS/PPS tracking
+	sps    []byte
+	pps    []byte
+	hadIDR bool
 }
 
 func newDecoder(codecID uint32) (*LibAVCodecDecoder, error) {
@@ -73,8 +78,21 @@ func (d *LibAVCodecDecoder) Close() error {
 	return nil
 }
 
+// SetSPSPPS sets default SPS/PPS NAL units for H264 decoding.
+// Some UVC devices (like DJI Osmo Action cameras) require manually configured
+// SPS/PPS headers. The data should include the 4-byte start code (0x00000001).
+func (d *LibAVCodecDecoder) SetSPSPPS(sps, pps []byte) {
+	d.sps = make([]byte, len(sps))
+	copy(d.sps, sps)
+	d.pps = make([]byte, len(pps))
+	copy(d.pps, pps)
+}
+
 func (d *LibAVCodecDecoder) Write(pkt []byte) (int, error) {
-	d.pkt.data = (*C.uint8_t)(C.CBytes(pkt))
+	cdata := C.CBytes(pkt)
+	defer C.free(cdata)
+
+	d.pkt.data = (*C.uint8_t)(cdata)
 	d.pkt.size = C.int(len(pkt))
 
 	if res := C.avcodec_send_packet(d.ctx, d.pkt); res < 0 {
@@ -83,14 +101,109 @@ func (d *LibAVCodecDecoder) Write(pkt []byte) (int, error) {
 	return len(pkt), nil
 }
 
-func (d *LibAVCodecDecoder) WriteUSBFrame(fr *transfers.Frame) error {
-	for _, p := range fr.Payloads {
-		d.pkt.data = (*C.uint8_t)(C.CBytes(p.Data))
-		d.pkt.size = C.int(len(p.Data))
+// findNALUnits finds all NAL unit boundaries in H264 data
+// Returns slice of (start, end, nalType) for each NAL unit
+func findNALUnits(data []byte) [][3]int {
+	var units [][3]int
+	i := 0
+	for i < len(data)-4 {
+		// Look for start code 0x00000001 or 0x000001
+		if data[i] == 0 && data[i+1] == 0 {
+			startCodeLen := 0
+			if data[i+2] == 0 && data[i+3] == 1 {
+				startCodeLen = 4
+			} else if data[i+2] == 1 {
+				startCodeLen = 3
+			}
+			if startCodeLen > 0 {
+				nalStart := i
+				nalType := int(data[i+startCodeLen] & 0x1F)
 
-		if res := C.avcodec_send_packet(d.ctx, d.pkt); res < 0 {
-			return fmt.Errorf("avcodec_send_packet() failed: %d", res)
+				// Find end of this NAL unit (start of next or end of data)
+				j := i + startCodeLen + 1
+				for j < len(data)-3 {
+					if data[j] == 0 && data[j+1] == 0 {
+						if (j+3 < len(data) && data[j+2] == 0 && data[j+3] == 1) || data[j+2] == 1 {
+							break
+						}
+					}
+					j++
+				}
+				if j >= len(data)-3 {
+					j = len(data)
+				}
+				units = append(units, [3]int{nalStart, j, nalType})
+				i = j
+				continue
+			}
 		}
+		i++
+	}
+	return units
+}
+
+func (d *LibAVCodecDecoder) WriteUSBFrame(fr *transfers.Frame) error {
+	// Concatenate all payload data into a single buffer
+	// H264 NAL units can span multiple UVC payloads
+	totalSize := 0
+	for _, p := range fr.Payloads {
+		totalSize += len(p.Data)
+	}
+
+	if totalSize == 0 {
+		return nil
+	}
+
+	buf := make([]byte, totalSize)
+	offset := 0
+	for _, p := range fr.Payloads {
+		copy(buf[offset:], p.Data)
+		offset += len(p.Data)
+	}
+
+	// Parse NAL units and extract SPS/PPS if present
+	nalUnits := findNALUnits(buf)
+	hasIDR := false
+	for _, unit := range nalUnits {
+		nalType := unit[2]
+		nalData := buf[unit[0]:unit[1]]
+
+		switch nalType {
+		case 7: // SPS
+			d.sps = make([]byte, len(nalData))
+			copy(d.sps, nalData)
+		case 8: // PPS
+			d.pps = make([]byte, len(nalData))
+			copy(d.pps, nalData)
+		case 5: // IDR
+			hasIDR = true
+		}
+	}
+
+	// If this frame has an IDR and we have SPS/PPS, prepend them
+	var sendBuf []byte
+	if hasIDR && len(d.sps) > 0 && len(d.pps) > 0 {
+		sendBuf = make([]byte, len(d.sps)+len(d.pps)+len(buf))
+		copy(sendBuf, d.sps)
+		copy(sendBuf[len(d.sps):], d.pps)
+		copy(sendBuf[len(d.sps)+len(d.pps):], buf)
+		d.hadIDR = true
+	} else if d.hadIDR {
+		// Already had IDR, just send the frame
+		sendBuf = buf
+	} else {
+		// No IDR yet and no SPS/PPS - skip this frame
+		return nil
+	}
+
+	cdata := C.CBytes(sendBuf)
+	defer C.free(cdata)
+
+	d.pkt.data = (*C.uint8_t)(cdata)
+	d.pkt.size = C.int(len(sendBuf))
+
+	if res := C.avcodec_send_packet(d.ctx, d.pkt); res < 0 {
+		return fmt.Errorf("avcodec_send_packet() failed: %d", res)
 	}
 	return nil
 }

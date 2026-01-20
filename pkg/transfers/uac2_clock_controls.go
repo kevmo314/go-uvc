@@ -1,13 +1,10 @@
 package transfers
 
-/*
-#cgo LDFLAGS: -lusb-1.0
-#include <libusb-1.0/libusb.h>
-*/
-import "C"
 import (
 	"fmt"
-	"unsafe"
+	"time"
+
+	usb "github.com/kevmo314/go-usb"
 )
 
 // UAC2 Clock Source Control Selectors
@@ -32,13 +29,13 @@ const (
 
 // UAC2ClockControl provides clock domain control for UAC2/3 devices
 type UAC2ClockControl struct {
-	handle *C.struct_libusb_device_handle
+	handle *usb.DeviceHandle
 	ifnum  uint8
 }
 
-func NewUAC2ClockControl(handle unsafe.Pointer, interfaceNumber uint8) *UAC2ClockControl {
+func NewUAC2ClockControl(handle *usb.DeviceHandle, interfaceNumber uint8) *UAC2ClockControl {
 	return &UAC2ClockControl{
-		handle: (*C.struct_libusb_device_handle)(handle),
+		handle: handle,
 		ifnum:  interfaceNumber,
 	}
 }
@@ -232,19 +229,17 @@ func (c *UAC2ClockControl) controlTransfer(bmRequestType uint8, bRequest uint8,
 	// wIndex: Clock Entity ID in high byte, Interface in low byte
 	wIndex := (uint16(clockID) << 8) | uint16(c.ifnum)
 
-	ret := C.libusb_control_transfer(
-		c.handle,
-		C.uint8_t(bmRequestType),
-		C.uint8_t(bRequest),
-		C.uint16_t(wValue),
-		C.uint16_t(wIndex),
-		(*C.uchar)(unsafe.Pointer(&data[0])),
-		C.uint16_t(len(data)),
-		1000,
+	_, err := c.handle.ControlTransfer(
+		bmRequestType,
+		bRequest,
+		wValue,
+		wIndex,
+		data,
+		time.Second,
 	)
 
-	if ret < 0 {
-		return fmt.Errorf("clock control transfer failed: %s", C.GoString(C.libusb_error_name(ret)))
+	if err != nil {
+		return fmt.Errorf("clock control transfer failed: %w", err)
 	}
 
 	return nil

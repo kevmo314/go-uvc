@@ -14,6 +14,10 @@ github.com/hajimehoshi/ebiten/v2 v2.7.4 h1:X+heODRQ3Ie9F9QFjm24gEZqQd5FSfR9XuT2X
 github.com/hajimehoshi/ebiten/v2 v2.7.4/go.mod h1:H2pHVgq29rfm5yeQ7jzWOM3VHsjo7/AyucODNLOhsVY=
 github.com/jezek/xgb v1.1.1 h1:bE/r8ZZtSv7l9gk6nU0mYx51aXrvnyb44892TwSaqS4=
 github.com/jezek/xgb v1.1.1/go.mod h1:nrhwO0FX/enq75I7Y7G8iN1ubpSGZEiA3v9e9GyRFlk=
+github.com/kevmo314/go-usb v0.0.0-20260120040052-5318addb6078 h1:POXTkjel8Zw0cTttj6y6XLaGLQ5z3ELnC9cKZpLE2i4=
+github.com/kevmo314/go-usb v0.0.0-20260120040052-5318addb6078/go.mod h1:b1oiI7oFO6Mq3WYAUr+UvOhn4LqDtcx7jYz0NWSJyLM=
+github.com/kevmo314/go-usb v0.0.0-20260120040315-3f8fd8545ee2 h1:VWkZXOFi8V536xXPqV9kRY1MuhcY8UyYrH8vPFB1iYQ=
+github.com/kevmo314/go-usb v0.0.0-20260120040315-3f8fd8545ee2/go.mod h1:b1oiI7oFO6Mq3WYAUr+UvOhn4LqDtcx7jYz0NWSJyLM=
 github.com/lucasb-eyer/go-colorful v1.2.0 h1:1nnpGOrhyZZuNyfu1QjKiUICQ74+3FNCN69Aj6K7nkY=
 github.com/lucasb-eyer/go-colorful v1.2.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
 github.com/mattn/go-runewidth v0.0.15 h1:UNAjwbU9l54TA3KzvqLGxwWjHmMgBUVhBiTjelZgg3U=
@@ -26,6 +30,8 @@ github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJ
 github.com/rivo/uniseg v0.4.3/go.mod h1:FN3SvrM+Zdj16jyLfmOkMNblXMcoc8DfTHruCPUcx88=
 github.com/rivo/uniseg v0.4.7 h1:WUdvkW8uEhrYfLC4ZzdpI2ztxP1I582+49Oc5Mq64VQ=
 github.com/rivo/uniseg v0.4.7/go.mod h1:FN3SvrM+Zdj16jyLfmOkMNblXMcoc8DfTHruCPUcx88=
+github.com/veandco/go-sdl2 v0.4.40 h1:fZv6wC3zz1Xt167P09gazawnpa0KY5LM7JAvKpX9d/U=
+github.com/veandco/go-sdl2 v0.4.40/go.mod h1:OROqMhHD43nT4/i9crJukyVecjPNYYuCofep6SNiAjY=
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
 golang.org/x/crypto v0.0.0-20210921155107-089bfa567519/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=

@@ -1,13 +1,15 @@
 module github.com/kevmo314/go-uvc
 
-go 1.22.2
+go 1.25.0
 
 require (
 	github.com/gdamore/tcell/v2 v2.7.1
 	github.com/google/uuid v1.6.0
 	github.com/hajimehoshi/ebiten/v2 v2.7.4
+	github.com/kevmo314/go-usb v0.0.0-20260120040315-3f8fd8545ee2
 	github.com/mjibson/go-dsp v0.0.0-20180508042940-11479a337f12
 	github.com/rivo/tview v0.0.0-20240505185119-ed116790de0f
+	github.com/veandco/go-sdl2 v0.4.40
 	golang.org/x/image v0.16.0
 )
 

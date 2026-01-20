@@ -2,18 +2,12 @@ package transfers
 
 import (
 	"fmt"
-	"unsafe"
+	"time"
 
+	usb "github.com/kevmo314/go-usb"
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
 	"github.com/kevmo314/go-uvc/pkg/requests"
 )
-
-/*
-#cgo LDFLAGS: -lusb-1.0
-#include <libusb-1.0/libusb.h>
-#include <stdlib.h>
-*/
-import "C"
 
 type VideoStreamingInterfaceControlSelector int
 
@@ -32,21 +26,20 @@ const (
 
 type StreamingInterface struct {
 	bcdUVC      uint16 // cached since it's used a lot
-	ctx         *C.libusb_context
-	handle      *C.struct_libusb_device_handle
-	iface       *C.struct_libusb_interface
+	handle      *usb.DeviceHandle
+	iface       *usb.Interface
 	Descriptors []descriptors.StreamingInterface
 }
 
-func NewStreamingInterface(ctxp, handlep, ifacep unsafe.Pointer, bcdUVC uint16) *StreamingInterface {
-	ctx := (*C.struct_libusb_context)(ctxp)
-	handle := (*C.struct_libusb_device_handle)(handlep)
-	iface := (*C.struct_libusb_interface)(ifacep)
-	return &StreamingInterface{ctx: ctx, handle: handle, iface: iface, bcdUVC: bcdUVC}
+func NewStreamingInterface(handle *usb.DeviceHandle, iface *usb.Interface, bcdUVC uint16) *StreamingInterface {
+	return &StreamingInterface{handle: handle, iface: iface, bcdUVC: bcdUVC}
 }
 
 func (si *StreamingInterface) InterfaceNumber() uint8 {
-	return uint8(si.iface.altsetting.bInterfaceNumber)
+	if len(si.iface.AltSettings) == 0 {
+		return 0
+	}
+	return si.iface.AltSettings[0].InterfaceNumber
 }
 
 func (si *StreamingInterface) UVCVersionString() string {
@@ -84,91 +77,91 @@ func (si *StreamingInterface) InputHeaderDescriptors() []*descriptors.InputHeade
 }
 
 func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*FrameReader, error) {
-	ifnum := si.iface.altsetting.bInterfaceNumber
+	ifnum := si.InterfaceNumber()
 
-	// claim the control interface
-	if ret := C.libusb_detach_kernel_driver(si.handle, C.int(ifnum)); ret < 0 {
-		// return nil, fmt.Errorf("libusb_detach_kernel_driver failed: %s", C.GoString(C.libusb_error_name(ret)))
+	// Also claim the control interface (interface 0) for UVC control requests
+	si.handle.DetachKernelDriver(0)
+	if err := si.handle.ClaimInterface(0); err != nil {
+		// Control interface claim failure is not fatal, but log it
+		// Some devices may not require it
 	}
-	if ret := C.libusb_claim_interface(si.handle, C.int(ifnum)); ret < 0 {
-		return nil, fmt.Errorf("libusb_claim_interface failed: %s", C.GoString(C.libusb_error_name(ret)))
+
+	// Detach and claim the streaming interface
+	si.handle.DetachKernelDriver(ifnum)
+	if err := si.handle.ClaimInterface(ifnum); err != nil {
+		return nil, fmt.Errorf("claim_interface failed: %w", err)
 	}
+
 	vpcc := &descriptors.VideoProbeCommitControl{}
 	size := 48
-
-	buf := C.malloc(C.size_t(size))
-	defer C.free(buf)
+	buf := make([]byte, size)
 
 	// get the bounds
-	if ret := C.libusb_control_transfer(
-		si.handle,
-		C.uint8_t(requests.RequestTypeVideoInterfaceGetRequest), /* bmRequestType */
-		C.uint8_t(requests.RequestCodeGetMax),                   /* bRequest */
-		VideoStreamingInterfaceControlSelectorProbeControl<<8,   /* wValue */
-		C.uint16_t(ifnum), /* wIndex */
-		(*C.uchar)(buf),   /* data */
-		C.uint16_t(size),  /* len */
-		0,                 /* timeout */
-	); ret < 0 {
-		return nil, fmt.Errorf("libusb_control_transfer failed: %s", C.GoString(C.libusb_error_name(ret)))
+	_, err := si.handle.ControlTransfer(
+		uint8(requests.RequestTypeVideoInterfaceGetRequest),
+		uint8(requests.RequestCodeGetMax),
+		uint16(VideoStreamingInterfaceControlSelectorProbeControl)<<8,
+		uint16(ifnum),
+		buf,
+		5*time.Second,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("control_transfer GET_MAX failed: %w", err)
 	}
 
 	// assign the values
-	if err := vpcc.UnmarshalBinary(unsafe.Slice((*byte)(buf), size)); err != nil {
+	if err := vpcc.UnmarshalBinary(buf); err != nil {
 		return nil, err
 	}
 
 	vpcc.FormatIndex = formatIndex
 	vpcc.FrameIndex = frameIndex
 
-	if err := vpcc.MarshalInto(unsafe.Slice((*byte)(buf), size)); err != nil {
+	if err := vpcc.MarshalInto(buf); err != nil {
 		return nil, err
 	}
 
 	// call set
-	if ret := C.libusb_control_transfer(
-		si.handle,
-		C.uint8_t(requests.RequestTypeVideoInterfaceSetRequest), /* bmRequestType */
-		C.uint8_t(requests.RequestCodeSetCur),                   /* bRequest */
-		VideoStreamingInterfaceControlSelectorProbeControl<<8,   /* wValue */
-		C.uint16_t(ifnum), /* wIndex */
-		(*C.uchar)(buf),   /* data */
-		C.uint16_t(size),  /* len */
-		0,                 /* timeout */
-	); ret < 0 {
-		return nil, fmt.Errorf("libusb_control_transfer failed: %s", C.GoString(C.libusb_error_name(ret)))
+	_, err = si.handle.ControlTransfer(
+		uint8(requests.RequestTypeVideoInterfaceSetRequest),
+		uint8(requests.RequestCodeSetCur),
+		uint16(VideoStreamingInterfaceControlSelectorProbeControl)<<8,
+		uint16(ifnum),
+		buf,
+		5*time.Second,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("control_transfer SET_CUR probe failed: %w", err)
 	}
 
 	// call get to get the negotiated values
-	if ret := C.libusb_control_transfer(
-		si.handle,
-		C.uint8_t(requests.RequestTypeVideoInterfaceGetRequest), /* bmRequestType */
-		C.uint8_t(requests.RequestCodeGetCur),                   /* bRequest */
-		VideoStreamingInterfaceControlSelectorProbeControl<<8,   /* wValue */
-		C.uint16_t(ifnum), /* wIndex */
-		(*C.uchar)(buf),   /* data */
-		C.uint16_t(size),  /* len */
-		0,                 /* timeout */
-	); ret < 0 {
-		return nil, fmt.Errorf("libusb_control_transfer failed: %s", C.GoString(C.libusb_error_name(ret)))
+	_, err = si.handle.ControlTransfer(
+		uint8(requests.RequestTypeVideoInterfaceGetRequest),
+		uint8(requests.RequestCodeGetCur),
+		uint16(VideoStreamingInterfaceControlSelectorProbeControl)<<8,
+		uint16(ifnum),
+		buf,
+		5*time.Second,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("control_transfer GET_CUR probe failed: %w", err)
 	}
 
 	// perform a commit set
-	if ret := C.libusb_control_transfer(
-		si.handle,
-		C.uint8_t(requests.RequestTypeVideoInterfaceSetRequest), /* bmRequestType */
-		C.uint8_t(requests.RequestCodeSetCur),                   /* bRequest */
-		VideoStreamingInterfaceControlSelectorCommitControl<<8,  /* wValue */
-		C.uint16_t(ifnum), /* wIndex */
-		(*C.uchar)(buf),   /* data */
-		C.uint16_t(size),  /* len */
-		0,                 /* timeout */
-	); ret < 0 {
-		return nil, fmt.Errorf("libusb_control_transfer failed: %s", C.GoString(C.libusb_error_name(ret)))
+	_, err = si.handle.ControlTransfer(
+		uint8(requests.RequestTypeVideoInterfaceSetRequest),
+		uint8(requests.RequestCodeSetCur),
+		uint16(VideoStreamingInterfaceControlSelectorCommitControl)<<8,
+		uint16(ifnum),
+		buf,
+		5*time.Second,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("control_transfer SET_CUR commit failed: %w", err)
 	}
 
 	// unmarshal the negotiated values
-	if err := vpcc.UnmarshalBinary(unsafe.Slice((*byte)(buf), size)); err != nil {
+	if err := vpcc.UnmarshalBinary(buf); err != nil {
 		return nil, err
 	}
 
@@ -179,4 +172,12 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 	endpointAddress := inputs[0].EndpointAddress // take the first input header. TODO: should we select an input header?
 
 	return si.NewFrameReader(endpointAddress, vpcc)
+}
+
+func (si *StreamingInterface) Handle() *usb.DeviceHandle {
+	return si.handle
+}
+
+func (si *StreamingInterface) Interface() *usb.Interface {
+	return si.iface
 }

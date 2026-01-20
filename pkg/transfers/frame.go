@@ -1,23 +1,16 @@
 package transfers
 
-/*
-#cgo LDFLAGS: -lusb-1.0
-#include <libusb-1.0/libusb.h>
-#include <stdlib.h>
-*/
-import "C"
 import (
 	"fmt"
 	"io"
-	"unsafe"
 
+	usb "github.com/kevmo314/go-usb"
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
 )
 
 type FrameReader struct {
-	ctx    *C.libusb_context
-	handle *C.struct_libusb_device_handle
-	iface  *C.struct_libusb_interface
+	handle *usb.DeviceHandle
+	iface  *usb.Interface
 	vpcc   *descriptors.VideoProbeCommitControl
 	pr     io.Reader
 
@@ -58,14 +51,14 @@ func (f *Frame) Read(buf []byte) (int, error) {
 }
 
 func (si *StreamingInterface) NewFrameReader(endpointAddress uint8, vpcc *descriptors.VideoProbeCommitControl) (*FrameReader, error) {
-	useIsochronous := si.iface.num_altsetting > 1
+	useIsochronous := len(si.iface.AltSettings) > 1
 	if useIsochronous {
-		altsetting, packetSize, err := findIsochronousAltSetting(si.ctx, si.iface, C.uchar(endpointAddress), vpcc.MaxPayloadTransferSize)
+		altsetting, packetSize, err := findIsochronousAltSetting(si.iface, endpointAddress, vpcc.MaxPayloadTransferSize)
 		if err != nil {
 			return nil, err
 		}
-		if ret := C.libusb_set_interface_alt_setting(si.handle, C.int(altsetting.bInterfaceNumber), C.int(altsetting.bAlternateSetting)); ret < 0 {
-			return nil, fmt.Errorf("libusb_set_interface_alt_setting failed: %s", C.GoString(C.libusb_error_name(ret)))
+		if err := si.handle.SetInterfaceAltSetting(altsetting.InterfaceNumber, altsetting.AlternateSetting); err != nil {
+			return nil, fmt.Errorf("set_interface_alt_setting failed: %w", err)
 		}
 		packets := min((vpcc.MaxVideoFrameSize+packetSize-1)/packetSize, 128)
 		ir, err := si.NewIsochronousReader(endpointAddress, packets, packetSize)
@@ -80,12 +73,12 @@ func (si *StreamingInterface) NewFrameReader(endpointAddress uint8, vpcc *descri
 			buffer: make([]byte, vpcc.MaxVideoFrameSize),
 		}, nil
 	} else {
-		br, err := si.NewBulkReader(endpointAddress, vpcc.MaxPayloadTransferSize)
+		// Use async bulk reader for better throughput with queued URBs
+		br, err := si.NewAsyncBulkReader(endpointAddress, vpcc.MaxPayloadTransferSize)
 		if err != nil {
 			return nil, err
 		}
 		return &FrameReader{
-			ctx:    si.ctx,
 			handle: si.handle,
 			iface:  si.iface,
 			vpcc:   vpcc,
@@ -95,29 +88,26 @@ func (si *StreamingInterface) NewFrameReader(endpointAddress uint8, vpcc *descri
 	}
 }
 
-func findAltEndpoint(endpoints []C.struct_libusb_endpoint_descriptor, endpointAddress C.uchar) (int, error) {
+func findAltEndpoint(endpoints []usb.Endpoint, endpointAddress uint8) (int, error) {
 	for i, endpoint := range endpoints {
-		if endpoint.bEndpointAddress == endpointAddress {
+		if endpoint.EndpointAddr == endpointAddress {
 			return i, nil
 		}
 	}
 	return 0, fmt.Errorf("endpoint not found")
 }
 
-func getEndpointMaxPacketSize(ctx *C.struct_libusb_context, endpoint C.struct_libusb_endpoint_descriptor) uint32 {
-	var ssdesc *C.struct_libusb_ss_endpoint_companion_descriptor
-	ret := C.libusb_get_ss_endpoint_companion_descriptor(ctx, &endpoint, &ssdesc)
-	if ret == 0 {
-		defer C.libusb_free_ss_endpoint_companion_descriptor(ssdesc)
-		return uint32(ssdesc.wBytesPerInterval)
+func getEndpointMaxPacketSize(endpoint usb.Endpoint) uint32 {
+	// For SuperSpeed devices, check companion descriptor
+	if endpoint.SSCompanion != nil {
+		return uint32(endpoint.SSCompanion.BytesPerInterval)
 	}
-	val := endpoint.wMaxPacketSize & 0x07ff
-	endpointType := endpoint.bmAttributes & 0x03
-	if endpointType == C.LIBUSB_TRANSFER_TYPE_ISOCHRONOUS || endpointType == C.LIBUSB_TRANSFER_TYPE_INTERRUPT {
+	val := uint32(endpoint.MaxPacketSize & 0x07ff)
+	endpointType := usb.TransferType(endpoint.Attributes & 0x03)
+	if endpointType == usb.TransferTypeIsochronous || endpointType == usb.TransferTypeInterrupt {
 		val *= 1 + ((val >> 1) & 3)
 	}
-	return uint32(val)
-
+	return val
 }
 
 // findIsochronousAltSetting sets the isochronous alternate setting for the given interface and endpoint address to the
@@ -125,10 +115,9 @@ func getEndpointMaxPacketSize(ctx *C.struct_libusb_context, endpoint C.struct_li
 //
 // UVC spec 1.5, section 2.4.3: A typical use of alternate settings is to provide a way to change the bandwidth requirements an active
 // isochronous pipe imposes on the USB.
-func findIsochronousAltSetting(ctx *C.struct_libusb_context, iface *C.struct_libusb_interface, endpointAddress C.uchar, payloadSize uint32) (*C.struct_libusb_interface_descriptor, uint32, error) {
-	altsettings := unsafe.Slice(iface.altsetting, iface.num_altsetting)
-	for i, altsetting := range altsettings {
-		if altsetting.bNumEndpoints == 0 {
+func findIsochronousAltSetting(iface *usb.Interface, endpointAddress uint8, payloadSize uint32) (*usb.InterfaceAltSetting, uint32, error) {
+	for i, altsetting := range iface.AltSettings {
+		if altsetting.NumEndpoints == 0 {
 			// UVC spec 1.5, section 2.4.3: All devices that transfer isochronous video data must
 			// incorporate a zero-bandwidth alternate setting for each VideoStreaming interface that has an
 			// isochronous video endpoint, and it must be the default alternate setting (alternate setting zero).
@@ -137,19 +126,18 @@ func findIsochronousAltSetting(ctx *C.struct_libusb_context, iface *C.struct_lib
 			// alternate setting so we can't use it and should skip it.
 			continue
 		}
-		endpoints := unsafe.Slice(altsetting.endpoint, altsetting.bNumEndpoints)
 
-		j, err := findAltEndpoint(endpoints, endpointAddress)
+		j, err := findAltEndpoint(altsetting.Endpoints, endpointAddress)
 		if err != nil {
 			return nil, 0, err
 		}
 
-		packetSize := getEndpointMaxPacketSize(ctx, endpoints[j])
-		if packetSize >= payloadSize || i == len(altsettings)-1 {
+		packetSize := getEndpointMaxPacketSize(altsetting.Endpoints[j])
+		if packetSize >= payloadSize || i == len(iface.AltSettings)-1 {
 			return &altsetting, packetSize, nil
 		}
 	}
-	panic("invalid state")
+	return nil, 0, fmt.Errorf("no suitable isochronous alternate setting found for payload size %d", payloadSize)
 }
 
 // ReadFrame reads individual payloads from the USB device and returns a constructed frame.
@@ -206,8 +194,9 @@ func (r *FrameReader) ReadFrame() (*Frame, error) {
 }
 
 func (r *FrameReader) Close() error {
-	if ret := C.libusb_release_interface(r.handle, C.int(r.iface.altsetting.bInterfaceNumber)); ret < 0 {
-		return fmt.Errorf("libusb_release_interface failed: %s", C.GoString(C.libusb_error_name(ret)))
+	if len(r.iface.AltSettings) == 0 {
+		return nil
 	}
-	return nil
+	ifnum := r.iface.AltSettings[0].InterfaceNumber
+	return r.handle.ReleaseInterface(ifnum)
 }

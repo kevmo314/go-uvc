@@ -2,18 +2,12 @@ package uvc
 
 import (
 	"fmt"
-	"unsafe"
+	"time"
 
+	usb "github.com/kevmo314/go-usb"
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
 	"github.com/kevmo314/go-uvc/pkg/requests"
 )
-
-/*
-#cgo LDFLAGS: -lusb-1.0
-#include <libusb-1.0/libusb.h>
-#include <stdlib.h>
-*/
-import "C"
 
 var puControls = []descriptors.ProcessingUnitControlDescriptor{
 	&descriptors.BacklightCompensationControl{},
@@ -38,8 +32,8 @@ var puControls = []descriptors.ProcessingUnitControlDescriptor{
 }
 
 type ProcessingUnit struct {
-	usb            *C.struct_libusb_interface
-	deviceHandle   *C.struct_libusb_device_handle
+	handle         *usb.DeviceHandle
+	ifaceNum       uint8
 	UnitDescriptor *descriptors.ProcessingUnitDescriptor
 }
 
@@ -67,26 +61,21 @@ func (pu *ProcessingUnit) IsControlRequestSupported(desc descriptors.ProcessingU
 }
 
 func (pu *ProcessingUnit) Get(desc descriptors.ProcessingUnitControlDescriptor) error {
-	ifnum := pu.usb.altsetting.bInterfaceNumber
+	buf := make([]byte, 16)
 
-	bufLen := 16
-	buf := C.malloc(C.size_t(bufLen))
-	defer C.free(buf)
-
-	if ret := C.libusb_control_transfer(
-		pu.deviceHandle,
-		C.uint8_t(requests.RequestTypeVideoInterfaceGetRequest),
-		C.uint8_t(requests.RequestCodeGetCur),
-		C.uint16_t(desc.Value()<<8),
-		C.uint16_t(uint16(pu.UnitDescriptor.UnitID)<<8|uint16(ifnum)),
-		(*C.uchar)(buf),
-		C.uint16_t(bufLen),
-		0,
-	); ret < 0 {
-		return fmt.Errorf("libusb_control_transfer failed: %w", libusberror(ret))
+	_, err := pu.handle.ControlTransfer(
+		uint8(requests.RequestTypeVideoInterfaceGetRequest),
+		uint8(requests.RequestCodeGetCur),
+		uint16(desc.Value())<<8,
+		uint16(pu.UnitDescriptor.UnitID)<<8|uint16(pu.ifaceNum),
+		buf,
+		5*time.Second,
+	)
+	if err != nil {
+		return fmt.Errorf("control_transfer failed: %w", err)
 	}
 
-	if err := desc.UnmarshalBinary(unsafe.Slice((*byte)(buf), bufLen)); err != nil {
+	if err := desc.UnmarshalBinary(buf); err != nil {
 		return err
 	}
 
@@ -94,27 +83,21 @@ func (pu *ProcessingUnit) Get(desc descriptors.ProcessingUnitControlDescriptor) 
 }
 
 func (pu *ProcessingUnit) Set(desc descriptors.ProcessingUnitControlDescriptor) error {
-	ifnum := pu.usb.altsetting.bInterfaceNumber
-
 	buf, err := desc.MarshalBinary()
 	if err != nil {
 		return err
 	}
 
-	cPtr := (*C.uchar)(C.CBytes(buf))
-	defer C.free(unsafe.Pointer(cPtr))
-
-	if ret := C.libusb_control_transfer(
-		pu.deviceHandle,
-		C.uint8_t(requests.RequestTypeVideoInterfaceSetRequest),
-		C.uint8_t(requests.RequestCodeSetCur),
-		C.uint16_t(desc.Value()<<8),
-		C.uint16_t(uint16(pu.UnitDescriptor.UnitID)<<8|uint16(ifnum)),
-		(*C.uchar)(cPtr),
-		C.uint16_t(len(buf)),
-		0,
-	); ret < 0 {
-		return fmt.Errorf("libusb_control_transfer failed: %w", libusberror(ret))
+	_, err = pu.handle.ControlTransfer(
+		uint8(requests.RequestTypeVideoInterfaceSetRequest),
+		uint8(requests.RequestCodeSetCur),
+		uint16(desc.Value())<<8,
+		uint16(pu.UnitDescriptor.UnitID)<<8|uint16(pu.ifaceNum),
+		buf,
+		5*time.Second,
+	)
+	if err != nil {
+		return fmt.Errorf("control_transfer failed: %w", err)
 	}
 
 	return nil

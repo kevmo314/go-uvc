@@ -1,13 +1,10 @@
 package transfers
 
-/*
-#cgo LDFLAGS: -lusb-1.0
-#include <libusb-1.0/libusb.h>
-*/
-import "C"
 import (
 	"fmt"
-	"unsafe"
+	"time"
+
+	usb "github.com/kevmo314/go-usb"
 )
 
 // Mixer Unit Control Selectors
@@ -25,13 +22,13 @@ const (
 
 // MixerControl provides control over mixer units
 type MixerControl struct {
-	handle *C.struct_libusb_device_handle
+	handle *usb.DeviceHandle
 	ifnum  uint8
 }
 
-func NewMixerControl(handle unsafe.Pointer, interfaceNumber uint8) *MixerControl {
+func NewMixerControl(handle *usb.DeviceHandle, interfaceNumber uint8) *MixerControl {
 	return &MixerControl{
-		handle: (*C.struct_libusb_device_handle)(handle),
+		handle: handle,
 		ifnum:  interfaceNumber,
 	}
 }
@@ -204,19 +201,17 @@ func (m *MixerControl) controlTransfer(bmRequestType uint8, bRequest uint8,
 	// wIndex: Unit ID in high byte, Interface in low byte
 	wIndex := (uint16(unitID) << 8) | uint16(m.ifnum)
 
-	ret := C.libusb_control_transfer(
-		m.handle,
-		C.uint8_t(bmRequestType),
-		C.uint8_t(bRequest),
-		C.uint16_t(wValue),
-		C.uint16_t(wIndex),
-		(*C.uchar)(unsafe.Pointer(&data[0])),
-		C.uint16_t(len(data)),
-		1000,
+	_, err := m.handle.ControlTransfer(
+		bmRequestType,
+		bRequest,
+		wValue,
+		wIndex,
+		data,
+		time.Second,
 	)
 
-	if ret < 0 {
-		return fmt.Errorf("mixer control transfer failed: %s", C.GoString(C.libusb_error_name(ret)))
+	if err != nil {
+		return fmt.Errorf("mixer control transfer failed: %w", err)
 	}
 
 	return nil

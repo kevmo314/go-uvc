@@ -1,13 +1,10 @@
 package transfers
 
-/*
-#cgo LDFLAGS: -lusb-1.0
-#include <libusb-1.0/libusb.h>
-*/
-import "C"
 import (
 	"fmt"
-	"unsafe"
+	"time"
+
+	usb "github.com/kevmo314/go-usb"
 )
 
 // UAC Request Codes
@@ -81,13 +78,13 @@ const (
 
 // UACControl provides methods to control audio features
 type UACControl struct {
-	handle *C.struct_libusb_device_handle
+	handle *usb.DeviceHandle
 	ifnum  uint8
 }
 
-func NewUACControl(handle unsafe.Pointer, interfaceNumber uint8) *UACControl {
+func NewUACControl(handle *usb.DeviceHandle, interfaceNumber uint8) *UACControl {
 	return &UACControl{
-		handle: (*C.struct_libusb_device_handle)(handle),
+		handle: handle,
 		ifnum:  interfaceNumber,
 	}
 }
@@ -388,19 +385,17 @@ func (c *UACControl) controlTransfer(bmRequestType uint8, bRequest uint8,
 		wIndex = (uint16(unitID) << 8) | uint16(c.ifnum)
 	}
 
-	ret := C.libusb_control_transfer(
-		c.handle,
-		C.uint8_t(bmRequestType),
-		C.uint8_t(bRequest),
-		C.uint16_t(wValue),
-		C.uint16_t(wIndex),
-		(*C.uchar)(unsafe.Pointer(&data[0])),
-		C.uint16_t(len(data)),
-		1000, // 1 second timeout
+	_, err := c.handle.ControlTransfer(
+		bmRequestType,
+		bRequest,
+		wValue,
+		wIndex,
+		data,
+		time.Second,
 	)
 
-	if ret < 0 {
-		return fmt.Errorf("control transfer failed: %s", C.GoString(C.libusb_error_name(ret)))
+	if err != nil {
+		return fmt.Errorf("control transfer failed: %w", err)
 	}
 
 	return nil
