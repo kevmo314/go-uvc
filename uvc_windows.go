@@ -156,7 +156,7 @@ func (d *UVCDevice) DeviceInfo() (*DeviceInfo, error) {
 	}
 
 	info := &DeviceInfo{
-		device:      d,
+		device:       d,
 		friendlyName: d.mfDevice.FriendlyName,
 	}
 

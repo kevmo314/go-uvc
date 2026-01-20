@@ -42,8 +42,8 @@ func TestPayloadUnmarshalBinary_WithPTS(t *testing.T) {
 	// buf[1] = bitmask (0x04 = HasPTS)
 	// buf[2:6] = PTS (little endian)
 	buf := []byte{
-		6,    // header length
-		0x04, // bitmask: HasPTS
+		6,                      // header length
+		0x04,                   // bitmask: HasPTS
 		0x01, 0x02, 0x03, 0x04, // PTS = 0x04030201
 		0xAA, 0xBB, // payload data
 	}
@@ -72,8 +72,8 @@ func TestPayloadUnmarshalBinary_WithSCR(t *testing.T) {
 	// buf[0] = header length (8)
 	// buf[1] = bitmask (0x08 = HasSCR)
 	buf := []byte{
-		8,    // header length
-		0x08, // bitmask: HasSCR
+		8,                      // header length
+		0x08,                   // bitmask: HasSCR
 		0x11, 0x22, 0x33, 0x44, // STC = 0x44332211
 		0x55, 0x66, // TokenCounter = 0x6655
 		0xCC, 0xDD, // payload data
@@ -104,8 +104,8 @@ func TestPayloadUnmarshalBinary_WithSCR(t *testing.T) {
 func TestPayloadUnmarshalBinary_WithPTSAndSCR(t *testing.T) {
 	// Header with both PTS and SCR: 12 bytes
 	buf := []byte{
-		12,   // header length
-		0x0C, // bitmask: HasPTS | HasSCR
+		12,                     // header length
+		0x0C,                   // bitmask: HasPTS | HasSCR
 		0x01, 0x02, 0x03, 0x04, // PTS
 		0x11, 0x22, 0x33, 0x44, // STC
 		0x55, 0x66, // TokenCounter

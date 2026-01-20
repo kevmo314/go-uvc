@@ -9,10 +9,10 @@ import (
 )
 
 type AudioReader struct {
-	asi         *AudioStreamingInterface
-	handle      *usb.DeviceHandle
-	transfers   []*usb.IsochronousTransfer
-	mu          sync.Mutex
+	asi       *AudioStreamingInterface
+	handle    *usb.DeviceHandle
+	transfers []*usb.IsochronousTransfer
+	mu        sync.Mutex
 
 	// Current state
 	currentTx int

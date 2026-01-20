@@ -192,9 +192,9 @@ func (asi *AudioStreamingInterface) GetCurrentSamplingFreq() (uint32, error) {
 	// Read the current sampling frequency from the endpoint
 	freqData := make([]byte, 3)
 	_, err := asi.handle.ControlTransfer(
-		0xA2,               // bmRequestType: Class specific, endpoint, device to host
-		0x81,               // GET_CUR
-		0x0100,             // Sampling Frequency Control
+		0xA2,   // bmRequestType: Class specific, endpoint, device to host
+		0x81,   // GET_CUR
+		0x0100, // Sampling Frequency Control
 		uint16(asi.EndpointAddress),
 		freqData,
 		time.Second,
@@ -225,10 +225,10 @@ func (asi *AudioStreamingInterface) GetCurrentAudioFormat() (channels uint8, bit
 	// Channel config control = 0x02
 	channelData := make([]byte, 1)
 	_, err = asi.handle.ControlTransfer(
-		0xA1,                        // bmRequestType: Class specific, interface, device to host
-		0x81,                        // GET_CUR
-		0x0200,                      // Channel Config control (0x02) in high byte
-		(2<<8)|uint16(ifnum),        // Feature unit 2, interface number
+		0xA1,                 // bmRequestType: Class specific, interface, device to host
+		0x81,                 // GET_CUR
+		0x0200,               // Channel Config control (0x02) in high byte
+		(2<<8)|uint16(ifnum), // Feature unit 2, interface number
 		channelData,
 		100*time.Millisecond,
 	)
@@ -293,10 +293,10 @@ func (asi *AudioStreamingInterface) ClaimAudioReader(samplingFreq uint32) (*Audi
 
 		// Try to set on the interface while in alt 0
 		asi.handle.ControlTransfer(
-			0x21,              // bmRequestType: Class specific, interface, host to device
-			0x01,              // SET_CUR
-			0x0100,            // Sampling Frequency Control
-			uint16(ifnum),     // Interface number
+			0x21,          // bmRequestType: Class specific, interface, host to device
+			0x01,          // SET_CUR
+			0x0100,        // Sampling Frequency Control
+			uint16(ifnum), // Interface number
 			freqData,
 			time.Second,
 		)
@@ -325,20 +325,20 @@ func (asi *AudioStreamingInterface) ClaimAudioReader(samplingFreq uint32) (*Audi
 		// Try different approaches for setting sampling frequency
 		// Method 1: To the endpoint directly (UAC1 standard)
 		_, err := asi.handle.ControlTransfer(
-			0x22,                         // bmRequestType: Class specific, endpoint, host to device
-			0x01,                         // SET_CUR
-			0x0100,                       // Sampling Frequency Control (0x01) in high byte
-			uint16(asi.EndpointAddress),  // Endpoint address
+			0x22,                        // bmRequestType: Class specific, endpoint, host to device
+			0x01,                        // SET_CUR
+			0x0100,                      // Sampling Frequency Control (0x01) in high byte
+			uint16(asi.EndpointAddress), // Endpoint address
 			freqData,
 			time.Second,
 		)
 		if err != nil {
 			// Method 2: Try interface-based control
 			asi.handle.ControlTransfer(
-				0x21,            // bmRequestType: Class specific, interface, host to device
-				0x01,            // SET_CUR
-				0x0100,          // Sampling Frequency Control
-				uint16(ifnum),   // Interface number
+				0x21,          // bmRequestType: Class specific, interface, host to device
+				0x01,          // SET_CUR
+				0x0100,        // Sampling Frequency Control
+				uint16(ifnum), // Interface number
 				freqData,
 				time.Second,
 			)

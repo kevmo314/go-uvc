@@ -25,7 +25,7 @@ type AsyncBulkReader struct {
 	transfers []*usb.AsyncBulkTransfer
 
 	mu       sync.Mutex
-	nextRead int  // Index of next transfer to read from
+	nextRead int // Index of next transfer to read from
 	closed   bool
 
 	// Buffered data from a previous read that wasn't fully consumed

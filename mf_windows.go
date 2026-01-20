@@ -10,20 +10,20 @@ import (
 
 // Media Foundation GUIDs
 var (
-	MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE          = windows.GUID{0xc60ac5fe, 0x252a, 0x478f, [8]byte{0xa0, 0xef, 0xbc, 0x8f, 0xa5, 0xf7, 0xca, 0xd3}}
-	MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP   = windows.GUID{0x8ac3587a, 0x4ae7, 0x42d8, [8]byte{0x99, 0xe0, 0x0a, 0x60, 0x13, 0xee, 0xf9, 0x0f}}
-	MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME        = windows.GUID{0x60d0e559, 0x52f8, 0x4fa2, [8]byte{0xbb, 0xce, 0xac, 0xdb, 0x34, 0xa8, 0xec, 0x01}}
+	MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE                      = windows.GUID{0xc60ac5fe, 0x252a, 0x478f, [8]byte{0xa0, 0xef, 0xbc, 0x8f, 0xa5, 0xf7, 0xca, 0xd3}}
+	MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP               = windows.GUID{0x8ac3587a, 0x4ae7, 0x42d8, [8]byte{0x99, 0xe0, 0x0a, 0x60, 0x13, 0xee, 0xf9, 0x0f}}
+	MF_DEVSOURCE_ATTRIBUTE_FRIENDLY_NAME                    = windows.GUID{0x60d0e559, 0x52f8, 0x4fa2, [8]byte{0xbb, 0xce, 0xac, 0xdb, 0x34, 0xa8, 0xec, 0x01}}
 	MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_SYMBOLIC_LINK = windows.GUID{0x58f0aad8, 0x22bf, 0x4f8a, [8]byte{0xbb, 0x3d, 0xd2, 0xc4, 0x97, 0x8c, 0x6e, 0x2f}}
-	MF_MT_MAJOR_TYPE                            = windows.GUID{0x48eba18e, 0xf8c9, 0x4687, [8]byte{0xbf, 0x11, 0x0a, 0x74, 0xc9, 0xf9, 0x6a, 0x8f}}
-	MF_MT_SUBTYPE                               = windows.GUID{0xf7e34c9a, 0x42e8, 0x4714, [8]byte{0xb7, 0x4b, 0xcb, 0x29, 0xd7, 0x2c, 0x35, 0xe5}}
-	MF_MT_FRAME_SIZE                            = windows.GUID{0x1652c33d, 0xd6b2, 0x4012, [8]byte{0xb8, 0x34, 0x72, 0x03, 0x08, 0x49, 0xa3, 0x7d}}
-	MF_MT_FRAME_RATE                            = windows.GUID{0xc459a2e8, 0x3d2c, 0x4e44, [8]byte{0xb1, 0x32, 0xfe, 0xe5, 0x15, 0x6c, 0x7b, 0xb0}}
-	MFMediaType_Video                           = windows.GUID{0x73646976, 0x0000, 0x0010, [8]byte{0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}}
-	MFVideoFormat_MJPG                          = windows.GUID{0x47504a4d, 0x0000, 0x0010, [8]byte{0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}}
-	MFVideoFormat_NV12                          = windows.GUID{0x3231564e, 0x0000, 0x0010, [8]byte{0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}}
-	MFVideoFormat_YUY2                          = windows.GUID{0x32595559, 0x0000, 0x0010, [8]byte{0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}}
-	MFVideoFormat_RGB24                         = windows.GUID{0x00000014, 0x0000, 0x0010, [8]byte{0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}}
-	MFVideoFormat_RGB32                         = windows.GUID{0x00000016, 0x0000, 0x0010, [8]byte{0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}}
+	MF_MT_MAJOR_TYPE                                        = windows.GUID{0x48eba18e, 0xf8c9, 0x4687, [8]byte{0xbf, 0x11, 0x0a, 0x74, 0xc9, 0xf9, 0x6a, 0x8f}}
+	MF_MT_SUBTYPE                                           = windows.GUID{0xf7e34c9a, 0x42e8, 0x4714, [8]byte{0xb7, 0x4b, 0xcb, 0x29, 0xd7, 0x2c, 0x35, 0xe5}}
+	MF_MT_FRAME_SIZE                                        = windows.GUID{0x1652c33d, 0xd6b2, 0x4012, [8]byte{0xb8, 0x34, 0x72, 0x03, 0x08, 0x49, 0xa3, 0x7d}}
+	MF_MT_FRAME_RATE                                        = windows.GUID{0xc459a2e8, 0x3d2c, 0x4e44, [8]byte{0xb1, 0x32, 0xfe, 0xe5, 0x15, 0x6c, 0x7b, 0xb0}}
+	MFMediaType_Video                                       = windows.GUID{0x73646976, 0x0000, 0x0010, [8]byte{0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}}
+	MFVideoFormat_MJPG                                      = windows.GUID{0x47504a4d, 0x0000, 0x0010, [8]byte{0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}}
+	MFVideoFormat_NV12                                      = windows.GUID{0x3231564e, 0x0000, 0x0010, [8]byte{0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}}
+	MFVideoFormat_YUY2                                      = windows.GUID{0x32595559, 0x0000, 0x0010, [8]byte{0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}}
+	MFVideoFormat_RGB24                                     = windows.GUID{0x00000014, 0x0000, 0x0010, [8]byte{0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}}
+	MFVideoFormat_RGB32                                     = windows.GUID{0x00000016, 0x0000, 0x0010, [8]byte{0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71}}
 
 	IID_IMFMediaSource   = windows.GUID{0x279a808d, 0xaec7, 0x40c8, [8]byte{0x9c, 0x6b, 0xa6, 0xb4, 0x92, 0xc7, 0x8a, 0x66}}
 	IID_IMFSourceReader  = windows.GUID{0x70ae66f2, 0xc809, 0x4e4f, [8]byte{0x89, 0x15, 0xbd, 0xcb, 0x40, 0x6b, 0x79, 0x93}}
@@ -68,61 +68,61 @@ const (
 )
 
 var (
-	modmfplat    = windows.NewLazySystemDLL("mfplat.dll")
+	modmfplat      = windows.NewLazySystemDLL("mfplat.dll")
 	modmfreadwrite = windows.NewLazySystemDLL("mfreadwrite.dll")
-	modmf        = windows.NewLazySystemDLL("mf.dll")
-	modole32     = windows.NewLazySystemDLL("ole32.dll")
+	modmf          = windows.NewLazySystemDLL("mf.dll")
+	modole32       = windows.NewLazySystemDLL("ole32.dll")
 
-	procMFStartup            = modmfplat.NewProc("MFStartup")
-	procMFShutdown           = modmfplat.NewProc("MFShutdown")
-	procMFEnumDeviceSources  = modmf.NewProc("MFEnumDeviceSources")
+	procMFStartup                           = modmfplat.NewProc("MFStartup")
+	procMFShutdown                          = modmfplat.NewProc("MFShutdown")
+	procMFEnumDeviceSources                 = modmf.NewProc("MFEnumDeviceSources")
 	procMFCreateSourceReaderFromMediaSource = modmfreadwrite.NewProc("MFCreateSourceReaderFromMediaSource")
-	procMFCreateAttributes   = modmfplat.NewProc("MFCreateAttributes")
-	procCoInitializeEx       = modole32.NewProc("CoInitializeEx")
-	procCoUninitialize       = modole32.NewProc("CoUninitialize")
+	procMFCreateAttributes                  = modmfplat.NewProc("MFCreateAttributes")
+	procCoInitializeEx                      = modole32.NewProc("CoInitializeEx")
+	procCoUninitialize                      = modole32.NewProc("CoUninitialize")
 )
 
 const (
-	MF_VERSION            = 0x00020070 // MF 2.0
-	COINIT_MULTITHREADED  = 0x0
+	MF_VERSION               = 0x00020070 // MF 2.0
+	COINIT_MULTITHREADED     = 0x0
 	COINIT_APARTMENTTHREADED = 0x2
 )
 
 // IMFAttributes vtable
 type IMFAttributesVtbl struct {
-	QueryInterface         uintptr
-	AddRef                 uintptr
-	Release                uintptr
-	GetItem                uintptr
-	GetItemType            uintptr
-	CompareItem            uintptr
-	Compare                uintptr
-	GetUINT32              uintptr
-	GetUINT64              uintptr
-	GetDouble              uintptr
-	GetGUID                uintptr
-	GetStringLength        uintptr
-	GetString              uintptr
-	GetAllocatedString     uintptr
-	GetBlobSize            uintptr
-	GetBlob                uintptr
-	GetAllocatedBlob       uintptr
-	GetUnknown             uintptr
-	SetItem                uintptr
-	DeleteItem             uintptr
-	DeleteAllItems         uintptr
-	SetUINT32              uintptr
-	SetUINT64              uintptr
-	SetDouble              uintptr
-	SetGUID                uintptr
-	SetString              uintptr
-	SetBlob                uintptr
-	SetUnknown             uintptr
-	LockStore              uintptr
-	UnlockStore            uintptr
-	GetCount               uintptr
-	GetItemByIndex         uintptr
-	CopyAllItems           uintptr
+	QueryInterface     uintptr
+	AddRef             uintptr
+	Release            uintptr
+	GetItem            uintptr
+	GetItemType        uintptr
+	CompareItem        uintptr
+	Compare            uintptr
+	GetUINT32          uintptr
+	GetUINT64          uintptr
+	GetDouble          uintptr
+	GetGUID            uintptr
+	GetStringLength    uintptr
+	GetString          uintptr
+	GetAllocatedString uintptr
+	GetBlobSize        uintptr
+	GetBlob            uintptr
+	GetAllocatedBlob   uintptr
+	GetUnknown         uintptr
+	SetItem            uintptr
+	DeleteItem         uintptr
+	DeleteAllItems     uintptr
+	SetUINT32          uintptr
+	SetUINT64          uintptr
+	SetDouble          uintptr
+	SetGUID            uintptr
+	SetString          uintptr
+	SetBlob            uintptr
+	SetUnknown         uintptr
+	LockStore          uintptr
+	UnlockStore        uintptr
+	GetCount           uintptr
+	GetItemByIndex     uintptr
+	CopyAllItems       uintptr
 }
 
 type IMFAttributes struct {
@@ -197,9 +197,9 @@ func (a *IMFAttributes) GetUINT64(key *windows.GUID) (uint64, error) {
 // IMFActivate is an activation object that can create media sources
 type IMFActivateVtbl struct {
 	IMFAttributesVtbl
-	ActivateObject   uintptr
-	ShutdownObject   uintptr
-	DetachObject     uintptr
+	ActivateObject uintptr
+	ShutdownObject uintptr
+	DetachObject   uintptr
 }
 
 type IMFActivate struct {
@@ -230,19 +230,19 @@ func (a *IMFActivate) ActivateObject(iid *windows.GUID) (uintptr, error) {
 
 // IMFMediaSource vtable
 type IMFMediaSourceVtbl struct {
-	QueryInterface             uintptr
-	AddRef                     uintptr
-	Release                    uintptr
-	GetEvent                   uintptr
-	BeginGetEvent              uintptr
-	EndGetEvent                uintptr
-	QueueEvent                 uintptr
-	GetCharacteristics         uintptr
+	QueryInterface               uintptr
+	AddRef                       uintptr
+	Release                      uintptr
+	GetEvent                     uintptr
+	BeginGetEvent                uintptr
+	EndGetEvent                  uintptr
+	QueueEvent                   uintptr
+	GetCharacteristics           uintptr
 	CreatePresentationDescriptor uintptr
-	Start                      uintptr
-	Stop                       uintptr
-	Pause                      uintptr
-	Shutdown                   uintptr
+	Start                        uintptr
+	Stop                         uintptr
+	Pause                        uintptr
+	Shutdown                     uintptr
 }
 
 type IMFMediaSource struct {
@@ -275,17 +275,17 @@ func (s *IMFMediaSource) Shutdown() {
 
 // IMFSourceReader vtable
 type IMFSourceReaderVtbl struct {
-	QueryInterface   uintptr
-	AddRef           uintptr
-	Release          uintptr
-	GetStreamSelection uintptr
-	SetStreamSelection uintptr
-	GetNativeMediaType uintptr
+	QueryInterface      uintptr
+	AddRef              uintptr
+	Release             uintptr
+	GetStreamSelection  uintptr
+	SetStreamSelection  uintptr
+	GetNativeMediaType  uintptr
 	GetCurrentMediaType uintptr
 	SetCurrentMediaType uintptr
-	SetCurrentPosition uintptr
-	ReadSample       uintptr
-	Flush            uintptr
+	SetCurrentPosition  uintptr
+	ReadSample          uintptr
+	Flush               uintptr
 	GetServiceForStream uintptr
 }
 
@@ -347,10 +347,10 @@ func (r *IMFSourceReader) ReadSample(streamIndex uint32) (uint32, uint32, int64,
 // IMFMediaType vtable (extends IMFAttributes)
 type IMFMediaTypeVtbl struct {
 	IMFAttributesVtbl
-	GetMajorType     uintptr
+	GetMajorType       uintptr
 	IsCompressedFormat uintptr
-	IsEqual          uintptr
-	GetRepresentation uintptr
+	IsEqual            uintptr
+	GetRepresentation  uintptr
 	FreeRepresentation uintptr
 }
 
@@ -370,9 +370,9 @@ func (t *IMFMediaType) Release() {
 
 // IMFSample vtable
 type IMFSampleVtbl struct {
-	QueryInterface     uintptr
-	AddRef             uintptr
-	Release            uintptr
+	QueryInterface uintptr
+	AddRef         uintptr
+	Release        uintptr
 	// IMFAttributes methods
 	GetItem            uintptr
 	GetItemType        uintptr
@@ -405,20 +405,20 @@ type IMFSampleVtbl struct {
 	GetItemByIndex     uintptr
 	CopyAllItems       uintptr
 	// IMFSample methods
-	GetSampleFlags     uintptr
-	SetSampleFlags     uintptr
-	GetSampleTime      uintptr
-	SetSampleTime      uintptr
-	GetSampleDuration  uintptr
-	SetSampleDuration  uintptr
-	GetBufferCount     uintptr
-	GetBufferByIndex   uintptr
+	GetSampleFlags            uintptr
+	SetSampleFlags            uintptr
+	GetSampleTime             uintptr
+	SetSampleTime             uintptr
+	GetSampleDuration         uintptr
+	SetSampleDuration         uintptr
+	GetBufferCount            uintptr
+	GetBufferByIndex          uintptr
 	ConvertToContiguousBuffer uintptr
-	AddBuffer          uintptr
-	RemoveBufferByIndex uintptr
-	RemoveAllBuffers   uintptr
-	GetTotalLength     uintptr
-	CopyToBuffer       uintptr
+	AddBuffer                 uintptr
+	RemoveBufferByIndex       uintptr
+	RemoveAllBuffers          uintptr
+	GetTotalLength            uintptr
+	CopyToBuffer              uintptr
 }
 
 type IMFSample struct {

@@ -10,11 +10,11 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/veandco/go-sdl2/sdl"
 	"github.com/kevmo314/go-uvc"
 	"github.com/kevmo314/go-uvc/pkg/decode"
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
 	"github.com/kevmo314/go-uvc/pkg/transfers"
+	"github.com/veandco/go-sdl2/sdl"
 )
 
 // SPS/PPS for 1920x1080 H264
@@ -145,9 +145,9 @@ found:
 
 	// Frame channel
 	type yuvFrame struct {
-		y, u, v    []byte
-		yStride    int
-		uvStride   int
+		y, u, v  []byte
+		yStride  int
+		uvStride int
 	}
 	frameChan := make(chan *yuvFrame, 2)
 

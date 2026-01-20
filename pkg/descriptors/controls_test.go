@@ -65,9 +65,9 @@ func TestVideoProbeCommitControl_RoundTrip(t *testing.T) {
 func TestVideoProbeCommitControl_UnmarshalBinary_UVC10(t *testing.T) {
 	// UVC 1.0 format: 26 bytes
 	buf := make([]byte, 26)
-	buf[2] = 1                                       // FormatIndex
-	buf[3] = 2                                       // FrameIndex
-	buf[4], buf[5], buf[6], buf[7] = 0x15, 0xF9, 0x00, 0x00 // FrameInterval = 333333 (30fps in 100ns units)
+	buf[2] = 1                                                  // FormatIndex
+	buf[3] = 2                                                  // FrameIndex
+	buf[4], buf[5], buf[6], buf[7] = 0x15, 0xF9, 0x00, 0x00     // FrameInterval = 333333 (30fps in 100ns units)
 	buf[18], buf[19], buf[20], buf[21] = 0x00, 0x00, 0x10, 0x00 // MaxVideoFrameSize = 1048576
 
 	vpcc := &VideoProbeCommitControl{}
@@ -88,8 +88,8 @@ func TestVideoProbeCommitControl_UnmarshalBinary_UVC10(t *testing.T) {
 
 func TestVideoProbeCommitControl_MarshalInto(t *testing.T) {
 	vpcc := &VideoProbeCommitControl{
-		FormatIndex:      1,
-		FrameIndex:       3,
+		FormatIndex:       1,
+		FrameIndex:        3,
 		MaxVideoFrameSize: 1024,
 	}
 
