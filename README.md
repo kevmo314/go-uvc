@@ -1,7 +1,6 @@
 # github.com/kevmo314/go-uvc
 
-An almost-pure-Go library for accessing UVC devices. The library currently depends on libusb via cgo
-but _not_ libuvc. One day this may change but libusb is much more complex.
+A pure-Go library for accessing UVC devices.
 
 The non-Go equivalent of this library is [libuvc](https://github.com/libuvc/libuvc).
 
