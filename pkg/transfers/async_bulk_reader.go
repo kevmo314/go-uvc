@@ -10,27 +10,27 @@ import (
 const (
 	// DefaultNumTransfers is the number of queued transfers for async bulk reads.
 	// More transfers = better pipelining but more memory usage.
-	// Linux kernel typically limits bulk URBs per endpoint to 4-16.
-	// libuvc uses 100 by default, but Go's goroutines handle scheduling better,
-	// so 8 is a reasonable middle ground.
-	DefaultNumTransfers = 8
+	// With 16KB URB buffers, 64 URBs = 1MB total, well under kernel limits.
+	DefaultNumTransfers = 64
+
+	// MaxURBBufferSize is the maximum buffer size per URB to avoid ENOMEM.
+	// This matches libusb's MAX_BULK_BUFFER_LENGTH and the kernel's MAX_USBFS_BUFFER_SIZE.
+	MaxURBBufferSize = 16384
 )
 
 // AsyncBulkReader implements io.Reader with queued USB bulk transfers.
 // It keeps multiple URBs in flight to maximize USB throughput.
+// For UVC bulk transfers, it reassembles data from multiple small URBs
+// into complete payloads (delimited by short transfers).
 type AsyncBulkReader struct {
 	handle    *usb.DeviceHandle
 	endpoint  uint8
-	mtu       uint32
+	urbSize   int // Actual URB buffer size (capped at MaxURBBufferSize)
 	transfers []*usb.AsyncBulkTransfer
 
 	mu       sync.Mutex
 	nextRead int // Index of next transfer to read from
 	closed   bool
-
-	// Buffered data from a previous read that wasn't fully consumed
-	pending    []byte
-	pendingOff int
 }
 
 // NewAsyncBulkReader creates a new async bulk reader with queued transfers.
@@ -44,16 +44,22 @@ func NewAsyncBulkReaderWithCount(handle *usb.DeviceHandle, endpointAddress uint8
 		numTransfers = 1
 	}
 
+	// Use smaller URB buffers to avoid ENOMEM, but cap at mtu if mtu is smaller
+	urbSize := MaxURBBufferSize
+	if int(mtu) < urbSize {
+		urbSize = int(mtu)
+	}
+
 	r := &AsyncBulkReader{
 		handle:    handle,
 		endpoint:  endpointAddress,
-		mtu:       mtu,
+		urbSize:   urbSize,
 		transfers: make([]*usb.AsyncBulkTransfer, numTransfers),
 	}
 
-	// Create all transfers
+	// Create all transfers with small URB buffers
 	for i := 0; i < numTransfers; i++ {
-		t, err := handle.NewAsyncBulkTransfer(endpointAddress, int(mtu))
+		t, err := handle.NewAsyncBulkTransfer(endpointAddress, urbSize)
 		if err != nil {
 			// Clean up already created transfers
 			for j := 0; j < i; j++ {
@@ -78,7 +84,9 @@ func NewAsyncBulkReaderWithCount(handle *usb.DeviceHandle, endpointAddress uint8
 	return r, nil
 }
 
-// Read implements io.Reader. It reads data from the next completed USB transfer.
+// Read implements io.Reader. It returns complete UVC payloads by reassembling
+// data from multiple small URBs. A payload is complete when we receive a short
+// transfer (actual_length < urbSize) which signals end of USB transfer.
 func (r *AsyncBulkReader) Read(buf []byte) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -87,42 +95,28 @@ func (r *AsyncBulkReader) Read(buf []byte) (int, error) {
 		return 0, fmt.Errorf("reader closed")
 	}
 
-	// First, drain any pending data from a previous read
-	if len(r.pending) > r.pendingOff {
-		n := copy(buf, r.pending[r.pendingOff:])
-		r.pendingOff += n
-		if r.pendingOff >= len(r.pending) {
-			r.pending = nil
-			r.pendingOff = 0
+	// Accumulate URB data directly into buf until short transfer
+	written := 0
+	for {
+		t := r.transfers[r.nextRead]
+		data, err := t.Wait()
+		if err != nil {
+			return 0, fmt.Errorf("async bulk read failed: %w", err)
 		}
-		return n, nil
+
+		// Copy BEFORE resubmitting to avoid race with kernel
+		n := copy(buf[written:], data)
+		written += n
+
+		// Now safe to resubmit
+		t.Submit()
+		r.nextRead = (r.nextRead + 1) % len(r.transfers)
+
+		// Short transfer (including ZLP) signals end of payload
+		if len(data) < r.urbSize {
+			return written, nil
+		}
 	}
-
-	// Wait for the next transfer to complete
-	t := r.transfers[r.nextRead]
-	data, err := t.Wait()
-	if err != nil {
-		return 0, fmt.Errorf("async bulk read failed: %w", err)
-	}
-
-	// Immediately re-submit this transfer to keep the pipeline full
-	if err := t.Submit(); err != nil {
-		// Don't return error - just log it and continue
-		// The next read will fail if this is a persistent issue
-	}
-
-	// Advance to next transfer
-	r.nextRead = (r.nextRead + 1) % len(r.transfers)
-
-	// Copy data to caller's buffer
-	n := copy(buf, data)
-	if n < len(data) {
-		// Save remaining data for next Read call
-		r.pending = data
-		r.pendingOff = n
-	}
-
-	return n, nil
 }
 
 // Close cancels all pending transfers and releases resources.
