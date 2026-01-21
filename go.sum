@@ -14,8 +14,8 @@ github.com/hajimehoshi/ebiten/v2 v2.7.4 h1:X+heODRQ3Ie9F9QFjm24gEZqQd5FSfR9XuT2X
 github.com/hajimehoshi/ebiten/v2 v2.7.4/go.mod h1:H2pHVgq29rfm5yeQ7jzWOM3VHsjo7/AyucODNLOhsVY=
 github.com/jezek/xgb v1.1.1 h1:bE/r8ZZtSv7l9gk6nU0mYx51aXrvnyb44892TwSaqS4=
 github.com/jezek/xgb v1.1.1/go.mod h1:nrhwO0FX/enq75I7Y7G8iN1ubpSGZEiA3v9e9GyRFlk=
-github.com/kevmo314/go-usb v0.0.0-20260120040315-3f8fd8545ee2 h1:VWkZXOFi8V536xXPqV9kRY1MuhcY8UyYrH8vPFB1iYQ=
-github.com/kevmo314/go-usb v0.0.0-20260120040315-3f8fd8545ee2/go.mod h1:b1oiI7oFO6Mq3WYAUr+UvOhn4LqDtcx7jYz0NWSJyLM=
+github.com/kevmo314/go-usb v0.0.0-20260121051232-1c03c859f62b h1:2zv308oFCZWtNfTrU4ABiFNifdMxARWFoZRyz9WqJhA=
+github.com/kevmo314/go-usb v0.0.0-20260121051232-1c03c859f62b/go.mod h1:fkDbxhE3MAqoliYrDOAT22un9GNCioe0Kq9b1H5a52A=
 github.com/lucasb-eyer/go-colorful v1.2.0 h1:1nnpGOrhyZZuNyfu1QjKiUICQ74+3FNCN69Aj6K7nkY=
 github.com/lucasb-eyer/go-colorful v1.2.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
 github.com/mattn/go-runewidth v0.0.15 h1:UNAjwbU9l54TA3KzvqLGxwWjHmMgBUVhBiTjelZgg3U=
