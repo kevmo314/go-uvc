@@ -6,6 +6,7 @@ import (
 
 	usb "github.com/kevmo314/go-usb"
 	"github.com/kevmo314/go-uvc/pkg/descriptors"
+	"golang.org/x/sys/unix"
 )
 
 type FrameReader struct {
@@ -22,6 +23,27 @@ type FrameReader struct {
 type Frame struct {
 	Payloads      []*Payload
 	index, offset int
+	ArrivalTimeNs int64
+}
+
+// PTS returns the presentation timestamp from the first payload that has one.
+func (f *Frame) PTS() (uint32, bool) {
+	for _, p := range f.Payloads {
+		if p.HasPTS() {
+			return p.PTS, true
+		}
+	}
+	return 0, false
+}
+
+// SCR returns the source clock reference from the first payload that has one.
+func (f *Frame) SCR() (stc uint32, sof uint16, ok bool) {
+	for _, p := range f.Payloads {
+		if p.HasSCR() {
+			return p.SCR.SourceTimeClock, p.SCR.TokenCounter, true
+		}
+	}
+	return 0, 0, false
 }
 
 // Read reads the payload datas concatenated together.
@@ -174,7 +196,11 @@ func (r *FrameReader) ReadFrame() (*Frame, error) {
 				r.patch = n
 				return f, nil
 			}
-			f = &Frame{}
+			var ts unix.Timespec
+			unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts)
+			f = &Frame{
+				ArrivalTimeNs: int64(ts.Sec)*1e9 + int64(ts.Nsec),
+			}
 			fid := p.FrameID()
 			r.fid = &fid
 		}
