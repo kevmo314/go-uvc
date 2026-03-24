@@ -174,6 +174,30 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 	return si.NewFrameReader(endpointAddress, vpcc)
 }
 
+func (si *StreamingInterface) ClaimFrameReaderWithProbeCommit(vpcc *descriptors.VideoProbeCommitControl) (*FrameReader, error) {
+	if vpcc == nil {
+		return nil, fmt.Errorf("probe/commit control is nil")
+	}
+
+	ifnum := si.InterfaceNumber()
+
+	si.handle.DetachKernelDriver(0)
+	_ = si.handle.ClaimInterface(0)
+
+	si.handle.DetachKernelDriver(ifnum)
+	if err := si.handle.ClaimInterface(ifnum); err != nil {
+		return nil, fmt.Errorf("claim_interface failed: %w", err)
+	}
+
+	inputs := si.InputHeaderDescriptors()
+	if len(inputs) == 0 {
+		return nil, fmt.Errorf("no input header descriptors found")
+	}
+	endpointAddress := inputs[0].EndpointAddress
+
+	return si.NewFrameReader(endpointAddress, vpcc)
+}
+
 func (si *StreamingInterface) Handle() *usb.DeviceHandle {
 	return si.handle
 }
