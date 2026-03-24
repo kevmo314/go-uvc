@@ -17,12 +17,25 @@ jobs:
       with:
         go-version: '1.25'
 
-    - name: Build
+    - name: Install native dependencies
       run: |
-        packages=$(go list ./... | grep -v '/cmd/')
-        go build -v $packages
+        sudo apt-get update
+        sudo apt-get install -y \
+          pkg-config \
+          libavcodec-dev \
+          libavutil-dev \
+          libsdl2-dev \
+          libx11-dev \
+          libxrandr-dev \
+          libxcursor-dev \
+          libxinerama-dev \
+          libxi-dev \
+          libgl1-mesa-dev \
+          libxxf86vm-dev \
+          libasound2-dev
+
+    - name: Build
+      run: go build -v ./...
 
     - name: Test
-      run: |
-        packages=$(go list ./... | grep -v '/cmd/')
-        go test -v $packages
+      run: go test -v ./...
