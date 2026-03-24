@@ -174,6 +174,12 @@ func (si *StreamingInterface) ClaimFrameReader(formatIndex, frameIndex uint8) (*
 	return si.NewFrameReader(endpointAddress, vpcc)
 }
 
+// ClaimFrameReaderWithProbeCommit skips native UVC probe/commit and builds a
+// frame reader from parameters that were already negotiated by the caller.
+//
+// This is needed for Android wrapped USB fds where class-specific control
+// requests can fail even though descriptor reads and bulk/isochronous frame
+// transfers still work on the same handle.
 func (si *StreamingInterface) ClaimFrameReaderWithProbeCommit(vpcc *descriptors.VideoProbeCommitControl) (*FrameReader, error) {
 	if vpcc == nil {
 		return nil, fmt.Errorf("probe/commit control is nil")

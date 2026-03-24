@@ -1,3 +1,5 @@
+//go:build ffmpeg
+
 package decode
 
 import (
